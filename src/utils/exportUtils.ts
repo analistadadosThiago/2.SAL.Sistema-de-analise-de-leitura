@@ -31,7 +31,7 @@ export function exportToExcel(
 
   try {
     const timestamp = getCurrentDateTimeFormatted();
-    const systemName = 'SAL – Sistema de Acompanhamento de Leitura';
+    const systemName = 'Sistema de Análise de Leitura';
 
     const headerRows = [
       [systemName],
@@ -94,7 +94,7 @@ export function exportToPdf(
     });
 
     const timestamp = getCurrentDateTimeFormatted();
-    const systemName = 'SAL – Sistema de Acompanhamento de Leitura';
+    const systemName = 'Sistema de Análise de Leitura';
 
     // Header Title
     doc.setFont('helvetica', 'bold');
@@ -172,7 +172,7 @@ export function exportToCsv(
   const headers = Object.keys(data[0]);
 
   const metadataLines = [
-    `SAL – Sistema de Acompanhamento de Leitura`,
+    `Sistema de Análise de Leitura`,
     `Relatório: ${reportTitle || fileName}`,
     `Data e Hora da Pesquisa: ${timestamp}`,
     ``,

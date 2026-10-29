@@ -437,9 +437,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ records }) => {
             </div>
           </div>
 
-          {/* 2º DEPOIS: Gráfico de Barras Horizontais "Impedimentos por Razão" */}
+          {/* 2º DEPOIS: Gráfico de Barras VERTICAIS ("em pé") "Impedimentos por Razão" */}
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-4 mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-4 mb-6">
               <div className="flex items-center gap-2">
                 <BarChart3 className="w-5 h-5 text-rose-400" />
                 <div>
@@ -447,7 +447,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ records }) => {
                     Impedimentos por Razão
                   </h3>
                   <p className="text-xs text-slate-400">
-                    Barras horizontais ordenadas com exibição do total ao fim de cada barra e detalhamento por Matrícula ao passar o cursor.
+                    Gráfico vertical com exibição do total de impedimentos no topo de cada coluna e detalhamento por Matrícula ao passar o cursor.
                   </p>
                 </div>
               </div>
@@ -459,76 +459,79 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ records }) => {
             {impedimentosByRazao.length === 0 ? (
               <p className="text-xs text-slate-500 py-8 text-center">Nenhum registro para os filtros selecionados.</p>
             ) : (
-              <div className="space-y-4 pt-1">
-                {impedimentosByRazao.map((item) => {
-                  const barWidth = Math.max(4, Math.round((item.naoRealizadas / maxRazaoNl) * 100));
-                  const isHovered = hoveredRazao === item.rz;
+              <div className="overflow-x-auto pb-4">
+                <div className="min-w-[600px] flex items-end justify-around gap-4 h-[300px] pt-10 pb-4 px-2 border-b border-slate-800">
+                  {impedimentosByRazao.map((item) => {
+                    const colHeightPercent = Math.max(10, Math.round((item.naoRealizadas / maxRazaoNl) * 100));
+                    const isHovered = hoveredRazao === item.rz;
 
-                  return (
-                    <div
-                      key={item.rz}
-                      className="relative p-3 rounded-lg bg-slate-950/40 hover:bg-slate-800/40 border border-slate-800/60 transition-all cursor-pointer"
-                      onMouseEnter={() => setHoveredRazao(item.rz)}
-                      onMouseLeave={() => setHoveredRazao(null)}
-                    >
-                      {/* Top Label & Overall Stats */}
-                      <div className="flex items-center justify-between text-xs mb-2">
-                        <span className="font-semibold text-slate-200 text-sm">
-                          {item.rz}
-                        </span>
-                        <div className="flex items-center gap-3 font-mono tabular-nums text-xs">
-                          <span className="text-slate-400">{item.total} leituras totais</span>
-                          <span className="text-slate-600">·</span>
-                          <span className="text-amber-400 font-semibold">{formatPercent(item.pct)}</span>
-                        </div>
-                      </div>
-
-                      {/* Horizontal Bar with Total at the End */}
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1 h-5 bg-slate-950 rounded-lg overflow-hidden border border-slate-800 relative">
-                          <div
-                            className="h-full bg-gradient-to-r from-amber-500 via-rose-500 to-rose-600 rounded-lg transition-all duration-500 shadow-sm"
-                            style={{ width: `${barWidth}%` }}
-                          />
-                        </div>
-                        {/* Número Total de Impedimentos no fim da barra */}
-                        <div className="shrink-0 text-right min-w-[130px]">
-                          <span className="font-bold font-mono text-sm text-rose-400 tabular-nums">
-                            {item.naoRealizadas.toLocaleString('pt-BR')}{' '}
-                            <span className="text-xs font-normal text-slate-400">impedimentos</span>
+                    return (
+                      <div
+                        key={item.rz}
+                        className="flex-1 flex flex-col items-center justify-end h-full group relative cursor-pointer min-w-[55px] max-w-[120px]"
+                        onMouseEnter={() => setHoveredRazao(item.rz)}
+                        onMouseLeave={() => setHoveredRazao(null)}
+                      >
+                        {/* Número Total de Impedimentos no TOPO da coluna */}
+                        <div className="mb-2 text-center">
+                          <span className="font-bold font-mono text-xs text-rose-400 tabular-nums block">
+                            {item.naoRealizadas.toLocaleString('pt-BR')}
+                          </span>
+                          <span className="text-[10px] font-mono text-slate-500 block">
+                            {formatPercent(item.pct)}
                           </span>
                         </div>
-                      </div>
 
-                      {/* Tooltip with Matrícula Breakdown */}
-                      {isHovered && item.matriculas.length > 0 && (
-                        <div className="mt-3 p-3 bg-slate-900 border border-cyan-800/80 rounded-lg shadow-xl text-xs space-y-2 animate-fadeIn">
-                          <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 text-[11px] font-semibold text-cyan-300">
-                            <span className="flex items-center gap-1.5">
-                              <User className="w-3.5 h-3.5" />
-                              Detalhamento discriminado por Matrícula ({item.rz})
-                            </span>
-                            <span>{item.matriculas.length} leiturista(s) com impedimentos</span>
-                          </div>
-
-                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 pt-1 font-mono">
-                            {item.matriculas.map((mat) => (
-                              <div
-                                key={mat.matr}
-                                className="flex items-center justify-between px-2.5 py-1.5 rounded bg-slate-950 border border-slate-800 text-[11px]"
-                              >
-                                <span className="text-slate-300">Matr. <strong>{mat.matr}</strong></span>
-                                <span className="text-rose-400 font-bold tabular-nums">
-                                  {mat.count} imp.
-                                </span>
-                              </div>
-                            ))}
-                          </div>
+                        {/* Coluna Vertical "em pé" */}
+                        <div className="w-full flex justify-center h-[200px] items-end">
+                          <div
+                            className="w-full max-w-[42px] bg-gradient-to-t from-rose-700 via-rose-500 to-amber-400 rounded-t-lg transition-all duration-300 group-hover:brightness-110 shadow-lg shadow-rose-950/40"
+                            style={{ height: `${colHeightPercent}%` }}
+                          />
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
+
+                        {/* Rótulo da Razão na base */}
+                        <div className="mt-2 text-center">
+                          <span className="font-semibold text-xs text-slate-200 block truncate max-w-[90px]" title={item.rz}>
+                            {item.rz}
+                          </span>
+                        </div>
+
+                        {/* Tooltip com detalhamento por Matrícula */}
+                        {isHovered && item.matriculas.length > 0 && (
+                          <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 w-64 p-3 bg-slate-900 border border-cyan-800 rounded-xl shadow-2xl text-xs space-y-2 z-40 animate-fadeIn pointer-events-none">
+                            <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 text-[11px] font-semibold text-cyan-300">
+                              <span className="flex items-center gap-1.5">
+                                <User className="w-3.5 h-3.5" />
+                                Detalhamento por Matrícula ({item.rz})
+                              </span>
+                              <span>{item.matriculas.length} matr.</span>
+                            </div>
+
+                            <div className="text-[11px] text-slate-300 flex justify-between font-mono pb-1 border-b border-slate-800">
+                              <span>Total Leituras: <strong>{item.total.toLocaleString('pt-BR')}</strong></span>
+                              <span className="text-rose-400 font-bold">{item.naoRealizadas} imp.</span>
+                            </div>
+
+                            <div className="max-h-36 overflow-y-auto space-y-1 font-mono text-[11px]">
+                              {item.matriculas.map((mat) => (
+                                <div
+                                  key={mat.matr}
+                                  className="flex items-center justify-between px-2 py-1 rounded bg-slate-950 border border-slate-800 text-[10px]"
+                                >
+                                  <span className="text-slate-300">Matr. <strong>{mat.matr}</strong></span>
+                                  <span className="text-rose-400 font-bold tabular-nums">
+                                    {mat.count} imp.
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>

@@ -11,9 +11,9 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleMobileSidebar,
 }) => {
   return (
-    <header className="no-print h-16 border-b border-slate-800 bg-slate-900/95 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between gap-4 sticky top-0 z-30 shrink-0">
+    <header className="no-print h-16 sm:h-18 border-b border-slate-800 bg-slate-900/95 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between gap-4 sticky top-0 z-30 shrink-0">
       
-      {/* Brand Zone with clean, high-crisp official Logo (no redundant text) */}
+      {/* Brand Zone with clean, high-crisp official Logo */}
       <div className="flex items-center gap-3 shrink-0">
         <button
           onClick={onToggleMobileSidebar}
@@ -26,8 +26,8 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center">
           <img
             src="/assets/aistudio/LOGO_SAL_4ee1b044.png"
-            alt="SAL"
-            className="h-10 sm:h-12 w-auto object-contain drop-shadow"
+            alt="SAL - Sistema de Análise de Leitura"
+            className="h-12 sm:h-14 w-auto object-contain drop-shadow"
             style={{
               imageRendering: '-webkit-optimize-contrast',
             }}

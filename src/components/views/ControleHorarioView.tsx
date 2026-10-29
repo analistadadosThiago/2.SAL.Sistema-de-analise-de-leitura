@@ -8,15 +8,16 @@ interface ControleHorarioViewProps {
 }
 
 interface HorarioGroupRow {
-  matricula: string;
   data: string;
+  matricula: string;
+  razao: string;
   horaInicial: string;
   horaFinal: string;
   tempoServico: string; // HH:MM
   tempoServicoMinutos: number;
   totalLeituras: number;
-  cadenciaLeiturasHora: string;
-  tempoMedioPorLeitura: string;
+  cadenciaLeiturasHora: string; // ONLY numeric value
+  tempoMedioPorLeituraMinutos: string; // ONLY numeric value in minutes
 }
 
 /**
@@ -151,7 +152,7 @@ export const ControleHorarioView: React.FC<ControleHorarioViewProps> = ({ record
     return h * 3600 + m * 60 + s;
   };
 
-  // Group by MATRICULA and DATA
+  // Group by DATA, MATRICULA, and RAZAO
   const horarioRows = useMemo(() => {
     if (!hasGenerated) return [];
 
@@ -163,14 +164,18 @@ export const ControleHorarioView: React.FC<ControleHorarioViewProps> = ({ record
       return true;
     });
 
-    const groups = new Map<string, { matricula: string; data: string; records: ReadingRecord[] }>();
+    const groups = new Map<
+      string,
+      { data: string; matricula: string; razao: string; records: ReadingRecord[] }
+    >();
 
     filtered.forEach((r) => {
-      const mat = r.matr || 'SEM_MATR';
       const dt = r.data_original || 'SEM_DATA';
-      const key = `${mat}__${dt}`;
+      const mat = r.matr || 'SEM_MATR';
+      const rz = r.rz || 'RZ01';
+      const key = `${dt}__${mat}__${rz}`;
 
-      const cur = groups.get(key) || { matricula: mat, data: dt, records: [] };
+      const cur = groups.get(key) || { data: dt, matricula: mat, razao: rz, records: [] };
       cur.records.push(r);
       groups.set(key, cur);
     });
@@ -210,33 +215,41 @@ export const ControleHorarioView: React.FC<ControleHorarioViewProps> = ({ record
       const totalLeituras = group.records.length;
       const totalHours = diffMinutes / 60;
       const cadencia = totalHours > 0 ? (totalLeituras / totalHours).toFixed(1) : totalLeituras.toString();
-      const avgMinutesPerReading = totalLeituras > 0 ? (diffMinutes / totalLeituras).toFixed(1) : '0';
+      const avgMinutesPerReading = totalLeituras > 0 ? (diffMinutes / totalLeituras).toFixed(2) : '0.00';
 
       results.push({
-        matricula: group.matricula,
         data: group.data,
+        matricula: group.matricula,
+        razao: group.razao,
         horaInicial: minTimeStr,
         horaFinal: maxTimeStr,
         tempoServico: `${formattedTempoServico}h`,
         tempoServicoMinutos: diffMinutes,
         totalLeituras,
-        cadenciaLeiturasHora: `${cadencia} L/H`,
-        tempoMedioPorLeitura: `${avgMinutesPerReading} min/l`,
+        cadenciaLeiturasHora: cadencia,
+        tempoMedioPorLeituraMinutos: avgMinutesPerReading,
       });
     });
 
-    return results.sort((a, b) => b.data.localeCompare(a.data) || a.matricula.localeCompare(b.matricula));
+    return results.sort(
+      (a, b) =>
+        b.data.localeCompare(a.data) ||
+        a.matricula.localeCompare(b.matricula) ||
+        a.razao.localeCompare(b.razao)
+    );
   }, [records, hasGenerated, activeFilters]);
 
   const handleExportExcel = () => {
     const data = horarioRows.map((r) => ({
-      MATRÍCULA: r.matricula,
       DATA: r.data,
+      MATRÍCULA: r.matricula,
+      RAZÃO: r.razao,
       'HORA INICIAL': r.horaInicial,
       'HORA FINAL': r.horaFinal,
       'TEMPO DE SERVIÇO': r.tempoServico,
       'TOTAL LEITURAS': r.totalLeituras,
-      'TEMPO (L/H)': `${r.cadenciaLeiturasHora} (${r.tempoMedioPorLeitura})`,
+      'TEMPO (L/H)': r.cadenciaLeiturasHora,
+      'TEMPO (L/M)': r.tempoMedioPorLeituraMinutos,
     }));
     exportToExcel(
       data,
@@ -247,13 +260,15 @@ export const ControleHorarioView: React.FC<ControleHorarioViewProps> = ({ record
 
   const handleExportPdf = () => {
     const data = horarioRows.map((r) => ({
-      MATRÍCULA: r.matricula,
       DATA: r.data,
+      MATRÍCULA: r.matricula,
+      RAZÃO: r.razao,
       'HORA INICIAL': r.horaInicial,
       'HORA FINAL': r.horaFinal,
       'TEMPO DE SERVIÇO': r.tempoServico,
       'TOTAL LEITURAS': r.totalLeituras,
-      'TEMPO (L/H)': `${r.cadenciaLeiturasHora} (${r.tempoMedioPorLeitura})`,
+      'TEMPO (L/H)': r.cadenciaLeiturasHora,
+      'TEMPO (L/M)': r.tempoMedioPorLeituraMinutos,
     }));
     exportToPdf(
       data,
@@ -262,12 +277,13 @@ export const ControleHorarioView: React.FC<ControleHorarioViewProps> = ({ record
     );
   };
 
+  // Filter summary text
   const filterSummary = useMemo(() => {
     const anoText = activeFilters.ano === 'TODOS' ? 'Todos' : activeFilters.ano;
     const mesText = activeFilters.mes === 'TODOS' ? 'Todos' : activeFilters.mes;
     const matrText = activeFilters.matr === 'TODOS' ? 'Todas' : activeFilters.matr;
     const dataText = activeFilters.data ? `Data: ${activeFilters.data}` : 'Todas as Datas';
-    return `Filtro: Ano: ${anoText} | Mês: ${mesText} | ${dataText} | Matrícula: ${matrText} (${horarioRows.length} jornadas identificadas)`;
+    return `Filtro: Ano: ${anoText} | Mês: ${mesText} | ${dataText} | Matr.: ${matrText} (${horarioRows.length} jornadas)`;
   }, [activeFilters, horarioRows.length]);
 
   return (
@@ -277,17 +293,17 @@ export const ControleHorarioView: React.FC<ControleHorarioViewProps> = ({ record
       <div className="border-b border-slate-800 pb-3">
         <h2 className="text-lg font-bold text-white flex items-center gap-2.5">
           <Clock className="w-5 h-5 text-cyan-400" />
-          <span>6. Controle de Horário</span>
+          <span>4.1. Controle de Horário</span>
         </h2>
         <p className="text-xs text-slate-400 mt-0.5">
-          Auditoria de jornada diária, primeira e última leitura e velocidade de atendimento operacional.
+          Rastreabilidade de jornada, hora inicial/final e produtividade média de leituras por hora e minuto.
         </p>
       </div>
 
       {/* Filter Form */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
         <form onSubmit={handleGenerate} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             
             {/* Ano */}
             <div>
@@ -298,7 +314,7 @@ export const ControleHorarioView: React.FC<ControleHorarioViewProps> = ({ record
                 id="horario-ano"
                 value={filterAno}
                 onChange={(e) => setFilterAno(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700/80 rounded-lg px-2.5 py-2 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-cyan-500 font-mono"
+                className="w-full bg-slate-950 border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-cyan-500 font-mono"
               >
                 <option value="TODOS">Todos</option>
                 {availableYears.map((y) => (
@@ -316,7 +332,7 @@ export const ControleHorarioView: React.FC<ControleHorarioViewProps> = ({ record
                 id="horario-mes"
                 value={filterMes}
                 onChange={(e) => setFilterMes(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700/80 rounded-lg px-2.5 py-2 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-cyan-500 font-mono"
+                className="w-full bg-slate-950 border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-cyan-500 font-mono"
               >
                 <option value="TODOS">Todos</option>
                 {availableMonths.map((m) => (
@@ -328,14 +344,14 @@ export const ControleHorarioView: React.FC<ControleHorarioViewProps> = ({ record
             {/* DATA */}
             <div>
               <label htmlFor="horario-data" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
-                DATA
+                Data (Dia Específico)
               </label>
               <input
                 id="horario-data"
                 type="date"
                 value={filterData}
                 onChange={(e) => setFilterData(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700/80 rounded-lg px-2.5 py-2 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-cyan-500 font-mono"
+                className="w-full bg-slate-950 border border-slate-700/80 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-cyan-500 font-mono"
               />
             </div>
 
@@ -348,38 +364,39 @@ export const ControleHorarioView: React.FC<ControleHorarioViewProps> = ({ record
                 id="horario-matr"
                 value={filterMatr}
                 onChange={(e) => setFilterMatr(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700/80 rounded-lg px-2.5 py-2 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-cyan-500 font-mono"
+                className="w-full bg-slate-950 border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-cyan-500 font-mono"
               >
-                <option value="TODOS">Todas as Matrículas</option>
-                {availableMatr.map((m) => (
-                  <option key={m} value={m}>{m}</option>
+                <option value="TODOS">Todas</option>
+                {availableMatr.map((mat) => (
+                  <option key={mat} value={mat}>{mat}</option>
                 ))}
               </select>
             </div>
 
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
-            {hasGenerated && (
-              <div className="flex items-center gap-1.5 text-xs text-slate-400 font-mono">
+          {/* Action Row */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-800">
+            {hasGenerated ? (
+              <div className="flex items-center gap-1.5 text-xs text-slate-400">
                 <Info className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                <span>{filterSummary}</span>
+                <span className="font-mono text-[11px] text-slate-300">{filterSummary}</span>
               </div>
-            )}
+            ) : <div />}
 
             <div className="flex items-center gap-2.5 ml-auto">
               <button
                 type="button"
                 onClick={handleReset}
-                className="px-4 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-medium text-xs border border-slate-700/80 transition-all flex items-center gap-2"
+                className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-medium text-xs border border-slate-700/80 transition-all flex items-center gap-2"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                <span>Fazer nova pesquisa</span>
+                <span>Nova Pesquisa</span>
               </button>
 
               <button
                 type="submit"
-                className="px-6 py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs transition-all flex items-center gap-2 shadow-sm"
+                className="px-6 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs transition-all flex items-center gap-2 shadow-sm"
               >
                 <Play className="w-4 h-4 fill-current" />
                 <span>Gerar Relatório</span>
@@ -389,7 +406,7 @@ export const ControleHorarioView: React.FC<ControleHorarioViewProps> = ({ record
         </form>
       </div>
 
-      {/* Main Results Table: Relatório de Horário (Padronizada) */}
+      {/* Main Results Table: Relatório de Horário */}
       {hasGenerated && (
         <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
           <div className="px-5 py-3.5 border-b border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -423,43 +440,67 @@ export const ControleHorarioView: React.FC<ControleHorarioViewProps> = ({ record
             </div>
           </div>
 
+          {/* Table with Exact Sequence:
+              DATA | MATRÍCULA | RAZÃO | HORA INICIAL | HORA FINAL | TEMPO DE SERVIÇO | TOTAL LEITURAS | TEMPO (L/H) | TEMPO (L/M)
+          */}
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead className="bg-slate-950/90 border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-400 font-mono">
                 <tr>
-                  <th className="py-3 px-4">MATRÍCULA</th>
-                  <th className="py-3 px-4">DATA</th>
-                  <th className="py-3 px-4 text-cyan-400">HORA INICIAL</th>
-                  <th className="py-3 px-4 text-cyan-400">HORA FINAL</th>
-                  <th className="py-3 px-4">TEMPO DE SERVIÇO</th>
-                  <th className="py-3 px-4 text-right">TOTAL LEITURAS</th>
-                  <th className="py-3 px-4 text-right text-emerald-400">TEMPO (L/H)</th>
+                  <th className="py-3 px-3.5">DATA</th>
+                  <th className="py-3 px-3.5">MATRÍCULA</th>
+                  <th className="py-3 px-3.5">RAZÃO</th>
+                  <th className="py-3 px-3.5 text-cyan-400">HORA INICIAL</th>
+                  <th className="py-3 px-3.5 text-cyan-400">HORA FINAL</th>
+                  <th className="py-3 px-3.5">TEMPO DE SERVIÇO</th>
+                  <th className="py-3 px-3.5 text-right">TOTAL LEITURAS</th>
+                  <th
+                    className="py-3 px-3.5 text-right text-emerald-400 cursor-help"
+                    title="Relação de tempo de leitura por Hora realizada"
+                  >
+                    TEMPO (L/H)
+                  </th>
+                  <th
+                    className="py-3 px-3.5 text-right text-cyan-400 cursor-help"
+                    title="Relação de tempo de leitura por minuto"
+                  >
+                    TEMPO (L/M)
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/80 font-mono tabular-nums text-slate-300">
                 {horarioRows.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="p-8 text-center text-xs text-slate-500">
+                    <td colSpan={9} className="p-8 text-center text-xs text-slate-500">
                       Nenhum registro encontrado para a data e filtros selecionados.
                     </td>
                   </tr>
                 ) : (
                   horarioRows.map((row, idx) => (
                     <tr key={idx} className="hover:bg-slate-800/40 transition-colors">
-                      <td className="py-3 px-4 font-bold text-white flex items-center gap-2">
-                        <UserCheck className="w-3.5 h-3.5 text-cyan-400" />
-                        {row.matricula}
+                      <td className="py-2.5 px-3.5 text-slate-200 font-sans">{row.data}</td>
+                      <td className="py-2.5 px-3.5 font-bold text-white flex items-center gap-1.5">
+                        <UserCheck className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                        <span>{row.matricula}</span>
                       </td>
-                      <td className="py-3 px-4 text-slate-200 font-sans">{row.data}</td>
-                      <td className="py-3 px-4 text-cyan-300 font-semibold">{row.horaInicial}</td>
-                      <td className="py-3 px-4 text-cyan-300 font-semibold">{row.horaFinal}</td>
-                      <td className="py-3 px-4 font-bold text-slate-100">{row.tempoServico}</td>
-                      <td className="py-3 px-4 text-right font-bold text-white">
+                      <td className="py-2.5 px-3.5 text-slate-300 font-sans font-semibold">{row.razao}</td>
+                      <td className="py-2.5 px-3.5 text-cyan-300 font-semibold">{row.horaInicial}</td>
+                      <td className="py-2.5 px-3.5 text-cyan-300 font-semibold">{row.horaFinal}</td>
+                      <td className="py-2.5 px-3.5 font-bold text-slate-100">{row.tempoServico}</td>
+                      <td className="py-2.5 px-3.5 text-right font-bold text-white">
                         {row.totalLeituras.toLocaleString('pt-BR')}
                       </td>
-                      <td className="py-3 px-4 text-right text-emerald-400 font-semibold">
-                        <span>{row.cadenciaLeiturasHora}</span>
-                        <span className="text-slate-500 font-normal ml-2">({row.tempoMedioPorLeitura})</span>
+                      <td
+                        className="py-2.5 px-3.5 text-right text-emerald-400 font-bold"
+                        title="Relação de tempo de leitura por Hora realizada"
+                      >
+                        {row.cadenciaLeiturasHora}
+                      </td>
+                      <td
+                        className="py-2.5 px-3.5 text-right text-cyan-400 font-bold"
+                        title="Relação de tempo de leitura por minuto"
+                      >
+                        {row.tempoMedioPorLeituraMinutos}
                       </td>
                     </tr>
                   ))

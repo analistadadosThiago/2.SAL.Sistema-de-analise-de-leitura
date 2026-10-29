@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Users, FileSpreadsheet, Printer, Play, RotateCcw, Info } from 'lucide-react';
+import { Users, FileSpreadsheet, Printer, Play, RotateCcw, Info, BarChart3, TrendingDown } from 'lucide-react';
 import { ReadingRecord, IMPEDIMENT_CODES, MONTH_NAMES } from '../../types/reading';
 import { exportToExcel, exportToPdf, formatPercent } from '../../utils/exportUtils';
 import { Pagination } from '../common/Pagination';
@@ -106,9 +106,13 @@ export const ControleLeituristaView: React.FC<ControleLeituristaViewProps> = ({ 
   };
 
   // Group and compute metrics based on activeFilters
-  const { groupedRows, totals } = useMemo(() => {
+  const { groupedRows, totals, nlImpedimentosChart } = useMemo(() => {
     if (!hasGenerated) {
-      return { groupedRows: [], totals: { urb: 0, pov: 0, rur: 0, total: 0 } };
+      return {
+        groupedRows: [],
+        totals: { urb: 0, pov: 0, rur: 0, total: 0, impedimentos: 0, indicador: 0 },
+        nlImpedimentosChart: [],
+      };
     }
 
     const filtered = records.filter((r) => {
@@ -116,6 +120,7 @@ export const ControleLeituristaView: React.FC<ControleLeituristaViewProps> = ({ 
       if (activeFilters.mes !== 'TODOS' && r.mes !== activeFilters.mes) return false;
       if (activeFilters.matr !== 'TODOS' && r.matr !== activeFilters.matr) return false;
 
+      // Strict interval on rz_ul_lv
       const targetUlNum = parseInt(String(r.rz_ul_lv || r.ul || '0').replace(/\D/g, ''), 10);
       if (activeFilters.ulDe) {
         const deNum = parseInt(activeFilters.ulDe, 10);
@@ -129,8 +134,9 @@ export const ControleLeituristaView: React.FC<ControleLeituristaViewProps> = ({ 
       return true;
     });
 
-    // Grouping by ANO + MES + RAZAO + UL + MATR
+    // Grouping by ANO + MES + RAZAO + UL (rz_ul_lv) + MATR
     const groupMap = new Map<string, GroupedLeituristaRow>();
+    const nlCountMap = new Map<string, number>();
     let totalUrb = 0;
     let totalPov = 0;
     let totalRur = 0;
@@ -139,7 +145,7 @@ export const ControleLeituristaView: React.FC<ControleLeituristaViewProps> = ({ 
       const ano = String(r.ano || '');
       const mes = r.mes || '';
       const razao = r.rz || 'RZ01';
-      const ul = r.ul || r.rz_ul_lv || '-';
+      const ul = r.rz_ul_lv || r.ul || '-';
       const matr = r.matr || '-';
       const key = `${ano}_${mes}_${razao}_${ul}_${matr}`;
 
@@ -176,8 +182,10 @@ export const ControleLeituristaView: React.FC<ControleLeituristaViewProps> = ({ 
 
       row.leitTotal++;
 
-      if (IMPEDIMENT_CODES.has(String(r.nl || '').trim())) {
+      const nlCode = String(r.nl || '').trim();
+      if (IMPEDIMENT_CODES.has(nlCode)) {
         row.impedimentos++;
+        nlCountMap.set(nlCode, (nlCountMap.get(nlCode) || 0) + 1);
       }
     });
 
@@ -189,14 +197,30 @@ export const ControleLeituristaView: React.FC<ControleLeituristaViewProps> = ({ 
     // Sort descending by impedimentos
     rows.sort((a, b) => b.impedimentos - a.impedimentos);
 
+    const totalLeituras = totalUrb + totalPov + totalRur;
+    const totalImpedimentos = rows.reduce((acc, r) => acc + r.impedimentos, 0);
+    const consolidadoIndicador = totalLeituras > 0 ? (totalImpedimentos / totalLeituras) * 100 : 0;
+
+    // NL Impediments chart array (ordered desc)
+    const nlChart = Array.from(nlCountMap.entries())
+      .map(([code, count]) => ({
+        code,
+        count,
+        pct: totalImpedimentos > 0 ? (count / totalImpedimentos) * 100 : 0,
+      }))
+      .sort((a, b) => b.count - a.count);
+
     return {
       groupedRows: rows,
       totals: {
         urb: totalUrb,
         pov: totalPov,
         rur: totalRur,
-        total: totalUrb + totalPov + totalRur,
+        total: totalLeituras,
+        impedimentos: totalImpedimentos,
+        indicador: consolidadoIndicador,
       },
+      nlImpedimentosChart: nlChart,
     };
   }, [records, hasGenerated, activeFilters]);
 
@@ -400,9 +424,9 @@ export const ControleLeituristaView: React.FC<ControleLeituristaViewProps> = ({ 
         </form>
       </div>
 
-      {/* 4 Cards no topo: Leit. Urb, Leit. Povoado, Leit. Rural e Total */}
+      {/* 5 Cards no topo: Leit. Urb, Leit. Povoado, Leit. Rural, Total e INDICADOR */}
       {hasGenerated && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block mb-1">
               Leit. Urbano
@@ -438,6 +462,90 @@ export const ControleLeituristaView: React.FC<ControleLeituristaViewProps> = ({ 
               {totals.total.toLocaleString('pt-BR')}
             </div>
           </div>
+
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm col-span-2 sm:col-span-1 border-amber-900/40">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-amber-300 block">
+                INDICADOR
+              </span>
+              <TrendingDown className="w-3.5 h-3.5 text-amber-400" />
+            </div>
+            <div className="text-2xl font-bold font-mono text-amber-400 tabular-nums">
+              {formatPercent(totals.indicador)}
+            </div>
+            <span className="text-[10px] text-amber-300/70 font-mono">
+              INFM ({totals.impedimentos} imped.)
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Gráfico na Vertical: Códigos de Não-Leitura (NL) de Impedimento (Maior para Menor) */}
+      {hasGenerated && (
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3 mb-5">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-rose-400" />
+              <div>
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                  Impedimentos por Código de Não-Leitura (NL)
+                </h3>
+                <p className="text-[11px] text-slate-400">
+                  Gráfico vertical ordenado do maior para o menor quantitativo de ocorrências de impedimento.
+                </p>
+              </div>
+            </div>
+            <span className="text-xs font-mono text-slate-400 bg-slate-950 px-2.5 py-1 rounded border border-slate-800">
+              {nlImpedimentosChart.length} códigos distintos
+            </span>
+          </div>
+
+          {nlImpedimentosChart.length === 0 ? (
+            <p className="text-xs text-slate-500 py-6 text-center">Nenhum código de impedimento registrado no filtro.</p>
+          ) : (
+            <div className="overflow-x-auto pb-2">
+              <div className="min-w-[500px] flex items-end justify-start gap-4 h-[240px] pt-8 pb-3 px-2 border-b border-slate-800">
+                {nlImpedimentosChart.map((item) => {
+                  const maxNlCount = nlImpedimentosChart[0]?.count || 1;
+                  const colHeight = Math.max(12, Math.round((item.count / maxNlCount) * 100));
+
+                  return (
+                    <div
+                      key={item.code}
+                      className="flex-1 flex flex-col items-center justify-end h-full group relative min-w-[45px] max-w-[80px]"
+                    >
+                      {/* Valor no topo */}
+                      <span className="font-bold font-mono text-xs text-rose-400 tabular-nums mb-1">
+                        {item.count}
+                      </span>
+
+                      {/* Barra Vertical */}
+                      <div className="w-full flex justify-center h-[160px] items-end">
+                        <div
+                          className="w-full max-w-[36px] bg-gradient-to-t from-rose-700 to-amber-500 rounded-t-md transition-all duration-300 group-hover:brightness-120 shadow-md shadow-rose-950/40"
+                          style={{ height: `${colHeight}%` }}
+                        />
+                      </div>
+
+                      {/* Código NL na base */}
+                      <div className="mt-2 text-center">
+                        <span className="px-1.5 py-0.5 rounded text-[11px] font-mono font-bold bg-slate-950 text-slate-200 border border-slate-800">
+                          {item.code}
+                        </span>
+                      </div>
+
+                      {/* Tooltip on hover */}
+                      <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 p-2 bg-slate-950 border border-slate-700 rounded-md text-xs whitespace-nowrap shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-30 font-mono">
+                        <div className="font-bold text-slate-200">Código NL: {item.code}</div>
+                        <div className="text-rose-400 font-semibold">{item.count} impedimento(s)</div>
+                        <div className="text-slate-400 text-[10px]">{formatPercent(item.pct)} do total</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -450,9 +558,6 @@ export const ControleLeituristaView: React.FC<ControleLeituristaViewProps> = ({ 
                 <Users className="w-4 h-4 text-cyan-400" />
                 <span>Relação de Impedimentos</span>
               </h3>
-              <span className="text-xs text-slate-400">
-                {groupedRows.length} registros consolidados (20 por página)
-              </span>
             </div>
 
             <div className="flex items-center gap-2">

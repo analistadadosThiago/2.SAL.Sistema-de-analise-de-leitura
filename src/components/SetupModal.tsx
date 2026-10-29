@@ -56,20 +56,17 @@ export const SetupModal: React.FC<SetupModalProps> = ({
       <div className="flex-1 flex items-center justify-center py-6">
         <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-xl shadow-2xl p-6 sm:p-8 text-slate-100">
           
-          {/* Header with clean official Logo (crisp rendering) */}
-          <div className="flex items-start justify-between gap-4 mb-6">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          {/* Header with clean official Logo (crisp rendering, prominent size) */}
+          <div className="flex items-center justify-between gap-4 mb-6">
+            <div className="flex items-center">
               <img
                 src="/assets/aistudio/LOGO_SAL_4ee1b044.png"
                 alt="SAL"
-                className="h-14 w-auto object-contain drop-shadow"
+                className="h-20 sm:h-24 md:h-28 w-auto object-contain drop-shadow-md"
                 style={{
                   imageRendering: '-webkit-optimize-contrast',
                 }}
               />
-              <p className="text-xs text-slate-400 max-w-sm">
-                Conexão com a base de dados pública do Google Sheets para inicialização das análises operacionais.
-              </p>
             </div>
 
             {!isInitial && onClose && (

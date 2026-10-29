@@ -79,6 +79,7 @@ export default function App() {
                 {currentMenu === 'consulta' && <ConsultaView records={records} />}
                 {currentMenu === 'leiturista' && <ControleLeituristaView records={records} />}
                 {currentMenu === 'evidencias' && <ControleEvidenciasView records={records} />}
+                {currentMenu === 'consistencia' && <NosbImpedimentoView records={records} mode="consistencia" />}
                 {currentMenu === 'nosb' && <NosbImpedimentoView records={records} mode="impedimento" />}
                 {currentMenu === 'nosb_simulacao' && <NosbImpedimentoView records={records} mode="simulacao" />}
                 {currentMenu === 'horario' && <ControleHorarioView records={records} />}
@@ -102,7 +103,7 @@ export default function App() {
               className="h-20 w-auto object-contain mb-5 drop-shadow-xl"
             />
             <h1 className="text-2xl font-bold text-white mb-2 tracking-tight">
-              SAL – Sistema de Acompanhamento de Leitura
+              SAL – Sistema de Análise de Leitura
             </h1>
             <p className="text-sm text-slate-400 mb-6 leading-relaxed">
               Sistema profissional para análise, auditoria de evidências e controle operacional de rotas de leitura.

@@ -1,19 +1,55 @@
 import React, { useState, useMemo } from 'react';
-import { AlertTriangle, Sparkles, FileSpreadsheet, Printer, Play, RotateCcw, Search, Hash, Gauge, Info } from 'lucide-react';
+import {
+  AlertTriangle,
+  Sparkles,
+  ClipboardCheck,
+  FileSpreadsheet,
+  Printer,
+  Play,
+  RotateCcw,
+  Hash,
+  Gauge,
+  Info,
+} from 'lucide-react';
 import { ReadingRecord, MONTH_NAMES } from '../../types/reading';
 import { exportToExcel, exportToPdf, formatPercent } from '../../utils/exportUtils';
 import { Pagination } from '../common/Pagination';
 
 interface NosbViewProps {
   records: ReadingRecord[];
-  mode?: 'impedimento' | 'simulacao';
+  mode?: 'impedimento' | 'simulacao' | 'consistencia';
 }
 
 export const NosbImpedimentoView: React.FC<NosbViewProps> = ({ records, mode = 'impedimento' }) => {
   const isSimulacao = mode === 'simulacao';
-  const targetField = isSimulacao ? 'nosb_simulacao' : 'nosb_impedimento';
-  const menuTitle = isSimulacao ? "5.1. N’OSB SIMULAÇÃO" : "5. N'OSB - Impedimento";
-  const fieldLabel = isSimulacao ? "Motivo Simulação" : "Motivo Impedimento";
+  const isConsistencia = mode === 'consistencia';
+
+  const menuTitle = isConsistencia
+    ? '3.3. Controle de Consistência'
+    : isSimulacao
+    ? '5.2. 5.1. N’OSB SIMULAÇÃO'
+    : "5.1. 5. N'OSB – Impedimento";
+
+  const fieldLabel = isConsistencia
+    ? 'Motivo de Consistência'
+    : isSimulacao
+    ? 'Motivo Simulação'
+    : 'Motivo Impedimento';
+
+  const tabela1MotivoHeader = isConsistencia
+    ? 'MOTIVO DA CONSISTENCIA'
+    : isSimulacao
+    ? 'MOTIVO SIMULAÇÃO'
+    : 'MOTIVO IMPEDIMENTO';
+
+  const tabela2MotivoHeader = isConsistencia ? 'CONSISTENCIA' : 'MOTIVO';
+
+  // Helper to extract value from record according to active mode
+  const getRecordMotivo = (r: ReadingRecord): string => {
+    if (isConsistencia) return (r.consistencia || '').trim();
+    if (isSimulacao) return (r.nosb_simulacao || '').trim();
+    return (r.nosb_impedimento || '').trim();
+  };
 
   // Extract options
   const availableYears = useMemo(() => {
@@ -47,13 +83,11 @@ export const NosbImpedimentoView: React.FC<NosbViewProps> = ({ records, mode = '
   const availableMotivos = useMemo(() => {
     const set = new Set<string>();
     records.forEach((r) => {
-      const val = isSimulacao ? r.nosb_simulacao : r.nosb_impedimento;
-      if (val && val.trim()) {
-        set.add(val.trim());
-      }
+      const val = getRecordMotivo(r);
+      if (val) set.add(val);
     });
     return Array.from(set).sort();
-  }, [records, isSimulacao]);
+  }, [records, mode]);
 
   // Filters State
   const [filterAno, setFilterAno] = useState<string>('TODOS');
@@ -111,7 +145,7 @@ export const NosbImpedimentoView: React.FC<NosbViewProps> = ({ records, mode = '
     setCurrentPage(1);
   };
 
-  // Base filtered dataset from "Gerar"
+  // Base filtered data
   const baseFilteredData = useMemo(() => {
     if (!hasGenerated) return [];
 
@@ -121,7 +155,7 @@ export const NosbImpedimentoView: React.FC<NosbViewProps> = ({ records, mode = '
       if (activeFilters.razao !== 'TODAS' && r.rz !== activeFilters.razao) return false;
       if (activeFilters.matr !== 'TODOS' && r.matr !== activeFilters.matr) return false;
 
-      const rowMotivo = ((isSimulacao ? r.nosb_simulacao : r.nosb_impedimento) || '').trim();
+      const rowMotivo = getRecordMotivo(r);
       if (activeFilters.motivo !== 'TODOS') {
         if (rowMotivo !== activeFilters.motivo) return false;
       } else {
@@ -130,7 +164,7 @@ export const NosbImpedimentoView: React.FC<NosbViewProps> = ({ records, mode = '
 
       return true;
     });
-  }, [records, hasGenerated, activeFilters, isSimulacao]);
+  }, [records, hasGenerated, activeFilters, mode]);
 
   // TABELA 1 (NO TOPO): Relação Quantitativa por Razão e Motivo
   const relacaoQuantitativa = useMemo(() => {
@@ -139,7 +173,7 @@ export const NosbImpedimentoView: React.FC<NosbViewProps> = ({ records, mode = '
 
     baseFilteredData.forEach((r) => {
       const razao = r.rz || 'RZ01';
-      const motivo = (isSimulacao ? r.nosb_simulacao : r.nosb_impedimento) || 'SEM MOTIVO ESPECIFICADO';
+      const motivo = getRecordMotivo(r) || 'SEM ESPECIFICAÇÃO';
       const key = `${razao}__${motivo}`;
 
       const cur = map.get(key) || { razao, motivo, quantidade: 0 };
@@ -154,7 +188,7 @@ export const NosbImpedimentoView: React.FC<NosbViewProps> = ({ records, mode = '
         percentual: totalInstalacoes > 0 ? (item.quantidade / totalInstalacoes) * 100 : 0,
       }))
       .sort((a, b) => b.quantidade - a.quantidade);
-  }, [baseFilteredData, isSimulacao]);
+  }, [baseFilteredData, mode]);
 
   // TABELA 2 (LOGO ABAIXO): Relação de Dados Selecionados (with local Instalação / Medidor search)
   const dadosSelecionados = useMemo(() => {
@@ -184,13 +218,27 @@ export const NosbImpedimentoView: React.FC<NosbViewProps> = ({ records, mode = '
   const handleExportQuantitativo = () => {
     const data = relacaoQuantitativa.map((r) => ({
       RAZÃO: r.razao,
-      MOTIVO: r.motivo,
+      [tabela1MotivoHeader]: r.motivo,
       'QUANTIDADE INSTALAÇÕES': r.quantidade,
-      PERCENTUAL: formatPercent(r.percentual),
+      Indicador: formatPercent(r.percentual),
     }));
     exportToExcel(
       data,
-      `${isSimulacao ? 'NOSB_Simulacao' : 'NOSB_Impedimento'}_Quantitativo_${activeFilters.mes}_${activeFilters.ano}`,
+      `${isConsistencia ? 'Consistencia' : isSimulacao ? 'NOSB_Simulacao' : 'NOSB_Impedimento'}_Resumo_${activeFilters.mes}_${activeFilters.ano}`,
+      `${menuTitle} - Relação Quantitativa (${activeFilters.mes}/${activeFilters.ano})`
+    );
+  };
+
+  const handleExportPdf = () => {
+    const data = relacaoQuantitativa.map((item) => ({
+      RAZÃO: item.razao,
+      [tabela1MotivoHeader]: item.motivo,
+      QUANTIDADE: item.quantidade,
+      Indicador: formatPercent(item.percentual),
+    }));
+    exportToPdf(
+      data,
+      `${isConsistencia ? 'Consistencia' : isSimulacao ? 'NOSB_Simulacao' : 'NOSB_Impedimento'}_Resumo_${activeFilters.mes}_${activeFilters.ano}`,
       `${menuTitle} - Relação Quantitativa (${activeFilters.mes}/${activeFilters.ano})`
     );
   };
@@ -200,7 +248,7 @@ export const NosbImpedimentoView: React.FC<NosbViewProps> = ({ records, mode = '
       MES: r.mes,
       ANO: r.ano,
       RAZÃO: r.rz,
-      UL: r.ul || r.rz_ul_lv,
+      UL: r.rz_ul_lv || r.ul,
       INSTALAÇÃO: r.instalacao,
       MEDIDOR: r.medidor,
       REG: r.reg,
@@ -208,26 +256,12 @@ export const NosbImpedimentoView: React.FC<NosbViewProps> = ({ records, mode = '
       MATR: r.matr,
       COD: r.nl,
       LEITURA: r.l_atual,
-      MOTIVO: isSimulacao ? r.nosb_simulacao : r.nosb_impedimento,
+      [tabela2MotivoHeader]: getRecordMotivo(r),
     }));
     exportToExcel(
       data,
-      `${isSimulacao ? 'NOSB_Simulacao' : 'NOSB_Impedimento'}_Dados_${activeFilters.mes}_${activeFilters.ano}`,
+      `${isConsistencia ? 'Consistencia' : isSimulacao ? 'NOSB_Simulacao' : 'NOSB_Impedimento'}_Dados_${activeFilters.mes}_${activeFilters.ano}`,
       `${menuTitle} - Relação de Dados Selecionados (${activeFilters.mes}/${activeFilters.ano})`
-    );
-  };
-
-  const handleExportPdf = () => {
-    const data = relacaoQuantitativa.map((item) => ({
-      RAZÃO: item.razao,
-      [fieldLabel.toUpperCase()]: item.motivo,
-      QUANTIDADE: item.quantidade,
-      'DISTRIBUIÇÃO': formatPercent(item.percentual),
-    }));
-    exportToPdf(
-      data,
-      `${isSimulacao ? 'NOSB_Simulacao' : 'NOSB_Impedimento'}_Resumo_${activeFilters.mes}_${activeFilters.ano}`,
-      `${menuTitle} - Relação Quantitativa (${activeFilters.mes}/${activeFilters.ano})`
     );
   };
 
@@ -236,7 +270,7 @@ export const NosbImpedimentoView: React.FC<NosbViewProps> = ({ records, mode = '
       MES: r.mes,
       ANO: r.ano,
       RAZÃO: r.rz,
-      UL: r.ul || r.rz_ul_lv,
+      UL: r.rz_ul_lv || r.ul,
       INSTALAÇÃO: r.instalacao,
       MEDIDOR: r.medidor,
       REG: r.reg,
@@ -244,11 +278,11 @@ export const NosbImpedimentoView: React.FC<NosbViewProps> = ({ records, mode = '
       MATR: r.matr,
       COD: r.nl,
       LEITURA: r.l_atual,
-      MOTIVO: isSimulacao ? r.nosb_simulacao : r.nosb_impedimento,
+      [tabela2MotivoHeader]: getRecordMotivo(r),
     }));
     exportToPdf(
       data,
-      `${isSimulacao ? 'NOSB_Simulacao' : 'NOSB_Impedimento'}_Dados_${activeFilters.mes}_${activeFilters.ano}`,
+      `${isConsistencia ? 'Consistencia' : isSimulacao ? 'NOSB_Simulacao' : 'NOSB_Impedimento'}_Dados_${activeFilters.mes}_${activeFilters.ano}`,
       `${menuTitle} - Relação de Dados Selecionados (${activeFilters.mes}/${activeFilters.ano})`
     );
   };
@@ -260,8 +294,8 @@ export const NosbImpedimentoView: React.FC<NosbViewProps> = ({ records, mode = '
     const rzText = activeFilters.razao === 'TODAS' ? 'Todas' : activeFilters.razao;
     const matrText = activeFilters.matr === 'TODOS' ? 'Todas' : activeFilters.matr;
     const motText = activeFilters.motivo === 'TODOS' ? 'Todos' : activeFilters.motivo;
-    return `Filtro: Ano: ${anoText} | Mês: ${mesText} | Razão: ${rzText} | Matr.: ${matrText} | Motivo: ${motText} (${baseFilteredData.length} registros)`;
-  }, [activeFilters, baseFilteredData.length]);
+    return `Filtro: Ano: ${anoText} | Mês: ${mesText} | Razão: ${rzText} | Matr.: ${matrText} | ${fieldLabel}: ${motText} (${baseFilteredData.length} registros)`;
+  }, [activeFilters, baseFilteredData.length, fieldLabel]);
 
   return (
     <div className="space-y-6">
@@ -269,17 +303,23 @@ export const NosbImpedimentoView: React.FC<NosbViewProps> = ({ records, mode = '
       {/* Title at top */}
       <div className="border-b border-slate-800 pb-3">
         <h2 className="text-lg font-bold text-white flex items-center gap-2.5">
-          {isSimulacao ? <Sparkles className="w-5 h-5 text-cyan-400" /> : <AlertTriangle className="w-5 h-5 text-amber-400" />}
+          {isConsistencia ? (
+            <ClipboardCheck className="w-5 h-5 text-emerald-400" />
+          ) : isSimulacao ? (
+            <Sparkles className="w-5 h-5 text-cyan-400" />
+          ) : (
+            <AlertTriangle className="w-5 h-5 text-amber-400" />
+          )}
           <span>{menuTitle}</span>
         </h2>
         <p className="text-xs text-slate-400 mt-0.5">
-          {isSimulacao
+          {isConsistencia
+            ? 'Controle, validação e auditoria dos registros de consistência das leituras.'
+            : isSimulacao
             ? 'Controle e auditoria de registros com simulação de faturamento e leitura.'
             : 'Controle de impressão N’OSB por motivos de impedimento e divergências de campo.'}
         </p>
       </div>
-
-      <div id="print-report-header" className="hidden print:block" />
 
       {/* Filter Form */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
@@ -325,7 +365,7 @@ export const NosbImpedimentoView: React.FC<NosbViewProps> = ({ records, mode = '
             {/* Razão */}
             <div>
               <label htmlFor="nosb-razao" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
-                Razão
+                Razão (rz)
               </label>
               <select
                 id="nosb-razao"
@@ -352,15 +392,15 @@ export const NosbImpedimentoView: React.FC<NosbViewProps> = ({ records, mode = '
                 className="w-full bg-slate-950 border border-slate-700/80 rounded-lg px-2.5 py-2 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-cyan-500 font-mono"
               >
                 <option value="TODOS">Todas</option>
-                {availableMatr.map((m) => (
-                  <option key={m} value={m}>{m}</option>
+                {availableMatr.map((mat) => (
+                  <option key={mat} value={mat}>{mat}</option>
                 ))}
               </select>
             </div>
 
-            {/* Motivo */}
+            {/* Motivo Selector */}
             <div>
-              <label htmlFor="nosb-motivo" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+              <label htmlFor="nosb-motivo" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1 truncate" title={fieldLabel}>
                 {fieldLabel}
               </label>
               <select
@@ -369,7 +409,7 @@ export const NosbImpedimentoView: React.FC<NosbViewProps> = ({ records, mode = '
                 onChange={(e) => setFilterMotivo(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-700/80 rounded-lg px-2.5 py-2 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-cyan-500 font-mono"
               >
-                <option value="TODOS">Todos os Motivos</option>
+                <option value="TODOS">Todos</option>
                 {availableMotivos.map((mot) => (
                   <option key={mot} value={mot}>{mot}</option>
                 ))}
@@ -378,29 +418,30 @@ export const NosbImpedimentoView: React.FC<NosbViewProps> = ({ records, mode = '
 
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
-            {hasGenerated && (
-              <div className="flex items-center gap-1.5 text-xs text-slate-400 font-mono">
+          {/* Action Row */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-800">
+            {hasGenerated ? (
+              <div className="flex items-center gap-1.5 text-xs text-slate-400">
                 <Info className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                <span>{filterSummary}</span>
+                <span className="font-mono text-[11px] text-slate-300">{filterSummary}</span>
               </div>
-            )}
+            ) : <div />}
 
             <div className="flex items-center gap-2.5 ml-auto">
               <button
                 type="button"
                 onClick={handleReset}
-                className="px-4 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-medium text-xs border border-slate-700/80 transition-all flex items-center gap-2"
+                className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-medium text-xs border border-slate-700/80 transition-all flex items-center gap-2"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                <span>Fazer nova pesquisa</span>
+                <span>Nova Pesquisa</span>
               </button>
 
               <button
                 type="submit"
-                className="px-6 py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs transition-all flex items-center gap-2 shadow-sm"
+                className="px-6 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs transition-all flex items-center gap-2 shadow-sm"
               >
-                <Play className="w-4 h-4 fill-current" />
+                <Play className="w-3.5 h-3.5 fill-current" />
                 <span>Gerar Relatório</span>
               </button>
             </div>
@@ -411,7 +452,7 @@ export const NosbImpedimentoView: React.FC<NosbViewProps> = ({ records, mode = '
       {hasGenerated && (
         <div className="space-y-6">
           
-          {/* TABELA 1: Relação Quantitativa por Razão e Motivo (NO TOPO / ACIMA) */}
+          {/* TABELA 1: Relação Quantitativa por Razão e Motivo */}
           <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
             <div className="px-5 py-3.5 border-b border-slate-800 flex items-center justify-between gap-3">
               <div>
@@ -448,9 +489,9 @@ export const NosbImpedimentoView: React.FC<NosbViewProps> = ({ records, mode = '
                 <thead className="bg-slate-950/90 border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-400 font-mono">
                   <tr>
                     <th className="py-3 px-3.5">RAZÃO</th>
-                    <th className="py-3 px-3.5">{fieldLabel.toUpperCase()}</th>
+                    <th className="py-3 px-3.5">{tabela1MotivoHeader}</th>
                     <th className="py-3 px-3.5 text-right">QUANTIDADE DE INSTALAÇÕES</th>
-                    <th className="py-3 px-3.5 text-right">DISTRIBUIÇÃO (%)</th>
+                    <th className="py-3 px-3.5 text-right">Indicador</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800 font-mono tabular-nums text-slate-300">
@@ -479,7 +520,7 @@ export const NosbImpedimentoView: React.FC<NosbViewProps> = ({ records, mode = '
             </div>
           </div>
 
-          {/* TABELA 2: Relação de Dados Selecionados (LOGO ABAIXO, com busca local por Instalação e Medidor) */}
+          {/* TABELA 2: Relação de Dados Selecionados */}
           <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
             <div className="px-5 py-3.5 border-b border-slate-800 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
               <div>
@@ -555,7 +596,7 @@ export const NosbImpedimentoView: React.FC<NosbViewProps> = ({ records, mode = '
                     <th className="py-3 px-3.5">MATR</th>
                     <th className="py-3 px-3.5">COD</th>
                     <th className="py-3 px-3.5 text-right">LEITURA</th>
-                    <th className="py-3 px-3.5 text-amber-300">MOTIVO</th>
+                    <th className="py-3 px-3.5 text-amber-300">{tabela2MotivoHeader}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60 font-mono text-slate-300 tabular-nums">
@@ -571,7 +612,7 @@ export const NosbImpedimentoView: React.FC<NosbViewProps> = ({ records, mode = '
                         <td className="py-2.5 px-3.5 font-sans text-slate-200">{row.mes}</td>
                         <td className="py-2.5 px-3.5 text-slate-400">{row.ano}</td>
                         <td className="py-2.5 px-3.5 text-slate-300">{row.rz}</td>
-                        <td className="py-2.5 px-3.5 text-cyan-400 font-semibold">{row.ul || row.rz_ul_lv}</td>
+                        <td className="py-2.5 px-3.5 text-cyan-400 font-semibold">{row.rz_ul_lv || row.ul}</td>
                         <td className="py-2.5 px-3.5 text-white font-semibold">{row.instalacao}</td>
                         <td className="py-2.5 px-3.5 text-slate-300">{row.medidor}</td>
                         <td className="py-2.5 px-3.5 text-center text-slate-400">{row.reg}</td>
@@ -586,7 +627,7 @@ export const NosbImpedimentoView: React.FC<NosbViewProps> = ({ records, mode = '
                           {row.l_atual.toLocaleString('pt-BR')}
                         </td>
                         <td className="py-2.5 px-3.5 font-sans font-medium text-amber-300">
-                          {(isSimulacao ? row.nosb_simulacao : row.nosb_impedimento) || 'Sem Motivo'}
+                          {getRecordMotivo(row) || 'Sem Registro'}
                         </td>
                       </tr>
                     ))

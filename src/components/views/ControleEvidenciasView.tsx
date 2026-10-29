@@ -466,11 +466,11 @@ export const ControleEvidenciasView: React.FC<ControleEvidenciasViewProps> = ({ 
               </div>
             </div>
 
-            {/* Vertical Columns Container */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4 items-end min-h-[260px] pt-4 pb-2 px-2 border-b border-slate-800">
+            {/* Vertical Columns Container (Taller, Amplified Visual) */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4 items-end min-h-[340px] pt-6 pb-3 px-3 border-b border-slate-800 overflow-x-auto">
               {relatorioPorRazao.map((r) => {
-                const realizHeight = maxSolicitadas > 0 ? Math.max(8, Math.round((r.realizadas / maxSolicitadas) * 190)) : 0;
-                const naoRealizHeight = maxSolicitadas > 0 ? Math.max(8, Math.round((r.naoRealizadas / maxSolicitadas) * 190)) : 0;
+                const realizHeight = maxSolicitadas > 0 ? Math.max(10, Math.round((r.realizadas / maxSolicitadas) * 240)) : 0;
+                const naoRealizHeight = maxSolicitadas > 0 ? Math.max(10, Math.round((r.naoRealizadas / maxSolicitadas) * 240)) : 0;
                 const isHovered = hoveredRazao === r.razao;
 
                 return (
@@ -485,19 +485,17 @@ export const ControleEvidenciasView: React.FC<ControleEvidenciasViewProps> = ({ 
                       {formatPercent(r.indicador)}
                     </span>
 
-                    {/* Vertical Bars (Side by Side) */}
-                    <div className="flex items-end gap-1.5 h-[200px] w-full justify-center bg-slate-950/60 p-1.5 rounded-lg border border-slate-800/80 group-hover:border-slate-700 transition-colors">
+                    {/* Vertical Bars (Side by Side - Height 250px) */}
+                    <div className="flex items-end gap-2 h-[250px] w-full justify-center bg-slate-950/70 p-2 rounded-lg border border-slate-800/80 group-hover:border-slate-700 transition-colors">
                       {/* Realizadas (Verde) */}
                       <div
-                        className="w-1/2 max-w-[20px] bg-emerald-500 rounded-t-md transition-all duration-300 hover:brightness-110 shadow-sm"
+                        className="w-1/2 max-w-[24px] bg-emerald-500 rounded-t-md transition-all duration-300 hover:brightness-110 shadow-sm"
                         style={{ height: `${realizHeight}px` }}
-                        title={`Realizadas: ${r.realizadas}`}
                       />
                       {/* Não-Realizadas (Vermelho) */}
                       <div
-                        className="w-1/2 max-w-[20px] bg-rose-500 rounded-t-md transition-all duration-300 hover:brightness-110 shadow-sm"
+                        className="w-1/2 max-w-[24px] bg-rose-500 rounded-t-md transition-all duration-300 hover:brightness-110 shadow-sm"
                         style={{ height: `${naoRealizHeight}px` }}
-                        title={`Não-Realizadas: ${r.naoRealizadas}`}
                       />
                     </div>
 
@@ -506,26 +504,23 @@ export const ControleEvidenciasView: React.FC<ControleEvidenciasViewProps> = ({ 
                       {r.razao}
                     </span>
 
-                    {/* Tooltip with Matrícula Breakdown */}
-                    {isHovered && r.matriculas.length > 0 && (
-                      <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 w-64 p-3 bg-slate-900 border border-cyan-800 rounded-lg shadow-2xl text-xs space-y-1.5 z-30 pointer-events-none">
-                        <div className="flex items-center justify-between border-b border-slate-800 pb-1 text-cyan-300 font-semibold text-[11px]">
-                          <span className="truncate">{r.razao}</span>
-                          <span>{r.indicador.toFixed(1)}%</span>
+                    {/* Tooltip on hover displaying ONLY Realizadas and Não-Realizadas */}
+                    {isHovered && (
+                      <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 w-48 p-2.5 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl text-xs space-y-1.5 z-30 pointer-events-none font-mono">
+                        <div className="border-b border-slate-800 pb-1 text-slate-200 font-semibold text-[11px] text-center font-sans">
+                          {r.razao}
                         </div>
-                        <div className="text-[11px] text-slate-300 flex justify-between font-mono">
-                          <span className="text-emerald-400 font-bold">{r.realizadas} Realizadas</span>
-                          <span className="text-rose-400 font-bold">{r.naoRealizadas} Pendentes</span>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-emerald-400 font-medium">REALIZADAS:</span>
+                          <span className="text-emerald-400 font-bold tabular-nums">
+                            {r.realizadas.toLocaleString('pt-BR')}
+                          </span>
                         </div>
-                        <div className="pt-1 border-t border-slate-800/80 max-h-32 overflow-y-auto space-y-1 font-mono text-[10px]">
-                          {r.matriculas.map((mat) => (
-                            <div key={mat.matr} className="flex justify-between text-slate-300">
-                              <span>Matr. {mat.matr}</span>
-                              <span>
-                                <strong className="text-emerald-400">{mat.realizadas}</strong> / <strong className="text-rose-400">{mat.naoRealizadas}</strong>
-                              </span>
-                            </div>
-                          ))}
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-rose-400 font-medium">NÃO-REALIZADAS:</span>
+                          <span className="text-rose-400 font-bold tabular-nums">
+                            {r.naoRealizadas.toLocaleString('pt-BR')}
+                          </span>
                         </div>
                       </div>
                     )}

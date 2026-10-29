@@ -54,6 +54,7 @@ export type ViewMenu =
   | 'consulta'
   | 'leiturista'
   | 'evidencias'
+  | 'consistencia'
   | 'nosb'
   | 'nosb_simulacao'
   | 'horario'
