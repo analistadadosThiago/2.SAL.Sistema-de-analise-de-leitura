@@ -1,0 +1,8 @@
+{
+  "name": "SAL – Sistema de Análise de Leitura",
+  "description": "Sistema avançado de análise, auditoria e controle operacional de leituras com integração ao Google Sheets.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
