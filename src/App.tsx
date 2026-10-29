@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
+import { Footer } from './components/Footer';
 import { SetupModal } from './components/SetupModal';
 import { DashboardView } from './components/views/DashboardView';
 import { ConsultaView } from './components/views/ConsultaView';
@@ -10,8 +11,7 @@ import { NosbImpedimentoView } from './components/views/NosbImpedimentoView';
 import { ControleHorarioView } from './components/views/ControleHorarioView';
 import { SequenciaLeituraView } from './components/views/SequenciaLeituraView';
 import { ReadingRecord, ViewMenu } from './types/reading';
-import { Database, FileSpreadsheet, Sparkles } from 'lucide-react';
-import { generateSampleReadings } from './utils/sampleData';
+import { FileSpreadsheet } from 'lucide-react';
 
 const LOCAL_STORAGE_SHEET_KEY = 'sal_last_sheet_url';
 
@@ -21,8 +21,8 @@ export default function App() {
   const [isSetupOpen, setIsSetupOpen] = useState(true);
   const [currentMenu, setCurrentMenu] = useState<ViewMenu>('inicio');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-  // Auto-load last saved URL or check localStorage
   const savedUrl = typeof window !== 'undefined' ? localStorage.getItem(LOCAL_STORAGE_SHEET_KEY) || '' : '';
 
   const handleDataLoaded = (
@@ -37,19 +37,10 @@ export default function App() {
     }
   };
 
-  const handleLoadDemoDirectly = () => {
-    const demoData = generateSampleReadings();
-    handleDataLoaded(demoData, {
-      url: 'Base de Demonstração (Demonstração Operacional)',
-      rows: demoData.length,
-      mappedCount: 22,
-    });
-  };
-
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-cyan-500/30 selection:text-cyan-200">
       
-      {/* Google Sheets Connection Modal / Initial Configuration Screen */}
+      {/* Google Sheets Connection Modal */}
       <SetupModal
         isOpen={isSetupOpen}
         onSuccess={handleDataLoaded}
@@ -58,37 +49,38 @@ export default function App() {
         isInitial={records.length === 0}
       />
 
-      {/* Main App Layout (Visible after initial data load or if closed) */}
+      {/* Main App Layout (Visible after data load or if closed) */}
       {records.length > 0 ? (
-        <div className="flex-1 flex flex-col min-h-screen">
+        <div className="flex-1 flex flex-col h-screen overflow-hidden">
           
-          {/* Top Bar Header */}
+          {/* Topbar Header (Fixed Top) */}
           <Header
-            totalRecords={records.length}
-            sheetUrl={sheetInfo?.url}
             onOpenSettings={() => setIsSetupOpen(true)}
             onToggleMobileSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
           />
 
-          <div className="flex-1 flex overflow-hidden">
+          <div className="flex-1 flex overflow-hidden min-h-0">
             
-            {/* Lateral Navigation Sidebar */}
+            {/* Lateral Navigation Sidebar with Collapsible capability */}
             <Sidebar
               currentMenu={currentMenu}
               onSelectMenu={(menu) => setCurrentMenu(menu)}
               isOpenMobile={isMobileSidebarOpen}
               onCloseMobile={() => setIsMobileSidebarOpen(false)}
               totalRecords={records.length}
+              isCollapsed={isSidebarCollapsed}
+              onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
             />
 
             {/* Viewport Content Area */}
-            <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-slate-950 print-area">
-              <div className="max-w-7xl mx-auto">
+            <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-slate-950 print-area flex flex-col justify-between">
+              <div className="max-w-7xl mx-auto w-full flex-1">
                 {currentMenu === 'inicio' && <DashboardView records={records} />}
                 {currentMenu === 'consulta' && <ConsultaView records={records} />}
                 {currentMenu === 'leiturista' && <ControleLeituristaView records={records} />}
                 {currentMenu === 'evidencias' && <ControleEvidenciasView records={records} />}
-                {currentMenu === 'nosb' && <NosbImpedimentoView records={records} />}
+                {currentMenu === 'nosb' && <NosbImpedimentoView records={records} mode="impedimento" />}
+                {currentMenu === 'nosb_simulacao' && <NosbImpedimentoView records={records} mode="simulacao" />}
                 {currentMenu === 'horario' && <ControleHorarioView records={records} />}
                 {currentMenu === 'sequencia' && <SequenciaLeituraView records={records} />}
               </div>
@@ -96,35 +88,36 @@ export default function App() {
 
           </div>
 
+          {/* Universal Footer fixed in all views */}
+          <Footer />
+
         </div>
       ) : (
         /* Clean initial splash state background while user enters sheet */
-        <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-cyan-950/80 border border-cyan-800 flex items-center justify-center text-cyan-400 mb-4 shadow-xl">
-            <Database className="w-8 h-8" />
-          </div>
-          <h1 className="text-2xl font-bold text-white mb-2">
-            SAL – Sistema de Análise de Leitura
-          </h1>
-          <p className="text-sm text-slate-400 max-w-md mb-6">
-            Aguardando conexão com a planilha pública do Google Sheets para inicialização dos módulos operacionais.
-          </p>
-          <div className="flex items-center gap-3">
+        <div className="min-h-screen flex flex-col justify-between p-6">
+          <div className="flex-1 flex flex-col items-center justify-center text-center max-w-lg mx-auto">
+            <img
+              src="/assets/aistudio/LOGO_SAL_4ee1b044.png"
+              alt="SAL Logo"
+              className="h-20 w-auto object-contain mb-5 drop-shadow-xl"
+            />
+            <h1 className="text-2xl font-bold text-white mb-2 tracking-tight">
+              SAL – Sistema de Acompanhamento de Leitura
+            </h1>
+            <p className="text-sm text-slate-400 mb-6 leading-relaxed">
+              Sistema profissional para análise, auditoria de evidências e controle operacional de rotas de leitura.
+            </p>
             <button
               onClick={() => setIsSetupOpen(true)}
-              className="px-5 py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-medium text-xs flex items-center gap-2 shadow-lg transition-colors"
+              className="px-6 py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-sm flex items-center gap-2 shadow-lg shadow-cyan-950/50 transition-all active:scale-95"
             >
               <FileSpreadsheet className="w-4 h-4" />
-              <span>Conectar Google Sheets</span>
-            </button>
-            <button
-              onClick={handleLoadDemoDirectly}
-              className="px-4 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-xs border border-slate-700 flex items-center gap-2 transition-colors"
-            >
-              <Sparkles className="w-4 h-4 text-amber-400" />
-              <span>Base Demonstrativa</span>
+              <span>Conectar Base do Google Sheets</span>
             </button>
           </div>
+
+          {/* Guaranteed Footer in splash */}
+          <Footer />
         </div>
       )}
 

@@ -1,8 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { Camera, FileSpreadsheet, Printer, Play, BarChart3 } from 'lucide-react';
+import { Camera, FileSpreadsheet, Printer, Play, RotateCcw, BarChart3, Info, User } from 'lucide-react';
 import { ReadingRecord, MONTH_NAMES } from '../../types/reading';
-import { exportToExcel, printReport, formatPercent } from '../../utils/exportUtils';
-import { Pagination } from '../common/Pagination';
+import { exportToExcel, exportToPdf, formatPercent } from '../../utils/exportUtils';
 
 interface ControleEvidenciasViewProps {
   records: ReadingRecord[];
@@ -39,6 +38,9 @@ export const ControleEvidenciasView: React.FC<ControleEvidenciasViewProps> = ({ 
   const [filterUlDe, setFilterUlDe] = useState<string>('');
   const [filterUlPara, setFilterUlPara] = useState<string>('');
 
+  // Hover state for interactive chart tooltip
+  const [hoveredRazao, setHoveredRazao] = useState<string | null>(null);
+
   // Obligatory "Gerar" button state
   const [hasGenerated, setHasGenerated] = useState(false);
   const [activeFilters, setActiveFilters] = useState({
@@ -48,10 +50,6 @@ export const ControleEvidenciasView: React.FC<ControleEvidenciasViewProps> = ({ 
     ulDe: '',
     ulPara: '',
   });
-
-  const [activeTab, setActiveTab] = useState<'completo' | 'razao'>('completo');
-  const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 20;
 
   const handleUlDeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFilterUlDe(e.target.value.replace(/\D/g, '').slice(0, 8));
@@ -71,7 +69,22 @@ export const ControleEvidenciasView: React.FC<ControleEvidenciasViewProps> = ({ 
       ulPara: filterUlPara.trim(),
     });
     setHasGenerated(true);
-    setCurrentPage(1);
+  };
+
+  const handleReset = () => {
+    setFilterAno('TODOS');
+    setFilterMes('TODOS');
+    setFilterMatr('TODOS');
+    setFilterUlDe('');
+    setFilterUlPara('');
+    setActiveFilters({
+      ano: 'TODOS',
+      mes: 'TODOS',
+      matr: 'TODOS',
+      ulDe: '',
+      ulPara: '',
+    });
+    setHasGenerated(false);
   };
 
   // Filtered operational records
@@ -97,75 +110,55 @@ export const ControleEvidenciasView: React.FC<ControleEvidenciasViewProps> = ({ 
     });
   }, [records, hasGenerated, activeFilters]);
 
-  // Compute leiturista / UL stats for accurate Solicitadas & Realizadas
-  const leituristaStats = useMemo(() => {
-    const stats = new Map<string, { solicitadas: number; realizadas: number }>();
-    filteredRecords.forEach((r) => {
-      const key = `${r.ano}_${r.mes}_${r.matr}`;
-      const cur = stats.get(key) || { solicitadas: 0, realizadas: 0 };
-      const isSolicitada = (r.digitacao || 0) >= 2;
-      if (isSolicitada) {
-        cur.solicitadas++;
-        if ((r.foto || '').toUpperCase() === 'OK') {
-          cur.realizadas++;
-        }
-      }
-      stats.set(key, cur);
-    });
-    return stats;
-  }, [filteredRecords]);
-
-  // Full table rows
-  const fullRows = useMemo(() => {
-    return filteredRecords.map((r) => {
-      const key = `${r.ano}_${r.mes}_${r.matr}`;
-      const stat = leituristaStats.get(key) || { solicitadas: 1, realizadas: 1 };
-      
-      const solicitadas = stat.solicitadas;
-      const realizadas = stat.realizadas;
-      const naoRealizadas = Math.max(0, solicitadas - realizadas);
-      const indicador = solicitadas > 0 ? (realizadas / solicitadas) * 100 : 0;
-
-      return {
-        id: r.id,
-        mes: r.mes,
-        ano: r.ano,
-        razao: r.rz || 'RZ01',
-        ul: r.ul || r.rz_ul_lv || '-',
-        solicitadas,
-        realizadas,
-        naoRealizadas,
-        matr: r.matr,
-        cod: r.nl || '0000',
-        leitura: r.l_atual,
-        dig: r.digitacao,
-        indicador,
-      };
-    });
-  }, [filteredRecords, leituristaStats]);
-
-  // Report by Razão
+  // Relatório por Razão
   const relatorioPorRazao = useMemo(() => {
-    const map = new Map<string, { solicitadas: number; realizadas: number; totalLeituras: number }>();
+    const map = new Map<
+      string,
+      {
+        totalLeituras: number;
+        solicitadas: number;
+        realizadas: number;
+        matriculaStats: Map<string, { realizadas: number; naoRealizadas: number }>;
+      }
+    >();
 
     filteredRecords.forEach((r) => {
       const rz = r.rz || 'RZ01';
-      const cur = map.get(rz) || { solicitadas: 0, realizadas: 0, totalLeituras: 0 };
+      const cur = map.get(rz) || {
+        totalLeituras: 0,
+        solicitadas: 0,
+        realizadas: 0,
+        matriculaStats: new Map<string, { realizadas: number; naoRealizadas: number }>(),
+      };
       cur.totalLeituras++;
 
       const isSolicitada = (r.digitacao || 0) >= 2;
+      const isFotoOk = (r.foto || '').toUpperCase() === 'OK';
+      const matr = r.matr || 'SEM MATR';
+
       if (isSolicitada) {
         cur.solicitadas++;
-        if ((r.foto || '').toUpperCase() === 'OK') {
+        const matCur = cur.matriculaStats.get(matr) || { realizadas: 0, naoRealizadas: 0 };
+        if (isFotoOk) {
           cur.realizadas++;
+          matCur.realizadas++;
+        } else {
+          matCur.naoRealizadas++;
         }
+        cur.matriculaStats.set(matr, matCur);
       }
+
       map.set(rz, cur);
     });
 
     return Array.from(map.entries()).map(([razao, d]) => {
       const naoRealizadas = Math.max(0, d.solicitadas - d.realizadas);
       const indicador = d.solicitadas > 0 ? (d.realizadas / d.solicitadas) * 100 : 0;
+
+      const matriculas = Array.from(d.matriculaStats.entries())
+        .map(([matr, s]) => ({ matr, ...s }))
+        .sort((a, b) => b.realizadas - a.realizadas);
+
       return {
         razao,
         totalLeituras: d.totalLeituras,
@@ -173,64 +166,82 @@ export const ControleEvidenciasView: React.FC<ControleEvidenciasViewProps> = ({ 
         realizadas: d.realizadas,
         naoRealizadas,
         indicador,
+        matriculas,
       };
     });
   }, [filteredRecords]);
 
-  // Row styling function based on INDICADOR:
-  // 0,00% a 0,40% = Verde Escuro
-  // 0,41% a 0,49% = Amarelo Escuro
-  // Acima de 0,50% = Vermelho Escuro com letras em NEGRITO
+  // REGRAS DE CORES NA TABELA "RELATÓRIO POR RAZÃO":
+  // - Indicador de 0,00% a 40,00%: Linha em tom VERMELHO CLARO
+  // - Indicador de 41,00% a 49,00%: Linha em tom AMARELO CLARO
+  // - Indicador de 50,00% a 100,00%: Linha em tom VERDE CLARO
   const getRowStyle = (indicador: number) => {
-    if (indicador <= 0.40) {
-      return 'bg-emerald-950/40 text-emerald-200 border-b border-emerald-900/30';
+    if (indicador <= 40.0) {
+      return 'bg-red-500/20 text-red-100 border-b border-red-500/40 hover:bg-red-500/30';
     }
-    if (indicador <= 0.49) {
-      return 'bg-amber-950/40 text-amber-200 border-b border-amber-900/30';
+    if (indicador <= 49.99) {
+      return 'bg-amber-500/20 text-amber-100 border-b border-amber-500/40 hover:bg-amber-500/30';
     }
-    return 'bg-rose-950/60 text-rose-100 font-bold border-b border-rose-900/40';
+    return 'bg-emerald-500/20 text-emerald-100 border-b border-emerald-500/40 hover:bg-emerald-500/30';
   };
-
-  const paginatedFullRows = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return fullRows.slice(start, start + pageSize);
-  }, [fullRows, currentPage, pageSize]);
-
-  const totalPages = Math.ceil(fullRows.length / pageSize) || 1;
 
   const handleExportExcel = () => {
-    if (activeTab === 'completo') {
-      const data = fullRows.map((r) => ({
-        MES: r.mes,
-        ANO: r.ano,
-        RAZÃO: r.razao,
-        UL: r.ul,
-        SOLICITADAS: r.solicitadas,
-        REALIZADAS: r.realizadas,
-        'NÃO-REALIZADAS': r.naoRealizadas,
-        MATR: r.matr,
-        COD: r.cod,
-        LEITURA: r.leitura,
-        DIG: r.dig,
-        INDICADOR: formatPercent(r.indicador),
-      }));
-      exportToExcel(data, `Controle_Evidencias_Completo_${activeFilters.mes}_${activeFilters.ano}`);
-    } else {
-      const data = relatorioPorRazao.map((r) => ({
-        RAZÃO: r.razao,
-        'TOTAL LEITURAS': r.totalLeituras,
-        SOLICITADAS: r.solicitadas,
-        REALIZADAS: r.realizadas,
-        'NÃO-REALIZADAS': r.naoRealizadas,
-        INDICADOR: formatPercent(r.indicador),
-      }));
-      exportToExcel(data, `Controle_Evidencias_Por_Razao_${activeFilters.mes}_${activeFilters.ano}`);
-    }
+    const data = relatorioPorRazao.map((r) => ({
+      RAZAO: r.razao,
+      'TOTAL LEITURAS': r.totalLeituras,
+      SOLICITADAS: r.solicitadas,
+      REALIZADAS: r.realizadas,
+      'NÃO-REALIZADAS': r.naoRealizadas,
+      INDICADOR: formatPercent(r.indicador),
+    }));
+    exportToExcel(
+      data,
+      `Controle_Evidencias_Por_Razao_${activeFilters.mes}_${activeFilters.ano}`,
+      `Controle de Evidências por Razão (${activeFilters.mes}/${activeFilters.ano})`
+    );
   };
+
+  const handleExportPdf = () => {
+    const data = relatorioPorRazao.map((r) => ({
+      RAZAO: r.razao,
+      'TOTAL LEITURAS': r.totalLeituras,
+      SOLICITADAS: r.solicitadas,
+      REALIZADAS: r.realizadas,
+      'NÃO-REALIZADAS': r.naoRealizadas,
+      INDICADOR: formatPercent(r.indicador),
+    }));
+    exportToPdf(
+      data,
+      `Controle_Evidencias_Por_Razao_${activeFilters.mes}_${activeFilters.ano}`,
+      `Controle de Evidências por Razão (${activeFilters.mes}/${activeFilters.ano})`
+    );
+  };
+
+  const maxSolicitadas = Math.max(...relatorioPorRazao.map((r) => r.solicitadas), 1);
+
+  // Dynamic filter summary
+  const filterSummary = useMemo(() => {
+    const anoText = activeFilters.ano === 'TODOS' ? 'Todos' : activeFilters.ano;
+    const mesText = activeFilters.mes === 'TODOS' ? 'Todos' : activeFilters.mes;
+    const matrText = activeFilters.matr === 'TODOS' ? 'Todas' : activeFilters.matr;
+    const ulText = activeFilters.ulDe || activeFilters.ulPara ? `UL: ${activeFilters.ulDe || 'Início'} a ${activeFilters.ulPara || 'Fim'}` : 'Todas as ULs';
+    return `Filtro: Ano: ${anoText} | Mês: ${mesText} | Matrícula: ${matrText} | ${ulText} (${filteredRecords.length} registros analisados)`;
+  }, [activeFilters, filteredRecords.length]);
 
   return (
     <div className="space-y-6">
       
+      {/* Title at top */}
+      <div className="border-b border-slate-800 pb-3">
+        <h2 className="text-lg font-bold text-white flex items-center gap-2.5">
+          <Camera className="w-5 h-5 text-cyan-400" />
+          <span>4. Controle de Evidências</span>
+        </h2>
+        <p className="text-xs text-slate-400 mt-0.5">
+          Auditoria de fotos solicitadas (digitação &ge; 2) versus fotos efetivamente realizadas por polo/razão.
+        </p>
+      </div>
+
       {/* Filters Form */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
         <form onSubmit={handleGenerate} className="space-y-4">
@@ -326,211 +337,198 @@ export const ControleEvidenciasView: React.FC<ControleEvidenciasViewProps> = ({ 
 
           </div>
 
-          <div className="flex justify-end pt-1">
-            <button
-              type="submit"
-              className="px-6 py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-medium text-xs transition-colors flex items-center gap-2 shadow-sm"
-            >
-              <Play className="w-4 h-4 fill-current" />
-              <span>Gerar Relatório</span>
-            </button>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+            {hasGenerated && (
+              <div className="flex items-center gap-1.5 text-xs text-slate-400 font-mono">
+                <Info className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                <span>{filterSummary}</span>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2.5 ml-auto">
+              <button
+                type="button"
+                onClick={handleReset}
+                className="px-4 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-medium text-xs border border-slate-700/80 transition-all flex items-center gap-2"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Fazer nova pesquisa</span>
+              </button>
+
+              <button
+                type="submit"
+                className="px-6 py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs transition-all flex items-center gap-2 shadow-sm"
+              >
+                <Play className="w-4 h-4 fill-current" />
+                <span>Gerar Relatório</span>
+              </button>
+            </div>
           </div>
         </form>
       </div>
 
       {/* Main Content Area */}
       {hasGenerated && (
-        <div className="space-y-5">
+        <div className="space-y-6">
           
-          {/* Conditional Color Legend */}
-          <div className="p-3.5 bg-slate-900 border border-slate-800 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs">
-            <span className="font-semibold text-slate-400 uppercase tracking-wider text-[11px]">
-              Legenda do Indicador:
-            </span>
-            <div className="flex flex-wrap items-center gap-4 text-xs font-mono">
-              <span className="px-2.5 py-1 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-800/60">
-                0,00% a 0,40% (Verde Escuro)
-              </span>
-              <span className="px-2.5 py-1 rounded bg-amber-950/80 text-amber-300 border border-amber-800/60">
-                0,41% a 0,49% (Amarelo Escuro)
-              </span>
-              <span className="px-2.5 py-1 rounded bg-rose-950/90 text-rose-200 font-bold border border-rose-800/60">
-                Acima de 0,50% (Vermelho Escuro - Negrito)
-              </span>
-            </div>
-          </div>
-
-          {/* Internal Tabs & Export Controls */}
+          {/* Tabela Padronizada: Relatório Por Razão (Sem a caixa de legenda anterior) */}
           <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
             <div className="px-5 py-3.5 border-b border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              
-              {/* Tab Selector */}
-              <div className="flex items-center gap-1 p-1 bg-slate-950 rounded-lg border border-slate-800">
-                <button
-                  onClick={() => setActiveTab('completo')}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                    activeTab === 'completo'
-                      ? 'bg-slate-800 text-cyan-300 shadow-sm font-semibold'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  Relatório Completo ({fullRows.length})
-                </button>
-                <button
-                  onClick={() => setActiveTab('razao')}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                    activeTab === 'razao'
-                      ? 'bg-slate-800 text-cyan-300 shadow-sm font-semibold'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  Relatório Por Razão ({relatorioPorRazao.length})
-                </button>
+              <div>
+                <h3 className="text-sm font-bold text-white">Relatório por Razão</h3>
+                <span className="text-xs text-slate-400">
+                  {relatorioPorRazao.length} razões com solicitações de fotos apuradas
+                </span>
               </div>
 
-              {/* Actions */}
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleExportExcel}
                   className="px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700/60 transition-colors flex items-center gap-1.5 whitespace-nowrap"
+                  title="Exportar para Excel (.xlsx)"
                 >
                   <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Exportar Excel</span>
                 </button>
                 <button
-                  onClick={printReport}
+                  onClick={handleExportPdf}
                   className="px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700/60 transition-colors flex items-center gap-1.5 whitespace-nowrap"
+                  title="Exportar para PDF"
                 >
                   <Printer className="w-3.5 h-3.5 text-slate-300" />
-                  <span>Imprimir / PDF</span>
+                  <span>Exportar PDF</span>
                 </button>
               </div>
             </div>
 
-            {/* Tab 1: Relatório Completo */}
-            {activeTab === 'completo' && (
-              <>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead className="bg-slate-950/80 border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-400 font-mono">
-                      <tr>
-                        <th className="py-2.5 px-3">MES</th>
-                        <th className="py-2.5 px-3">ANO</th>
-                        <th className="py-2.5 px-3">RAZÃO</th>
-                        <th className="py-2.5 px-3">UL</th>
-                        <th className="py-2.5 px-3 text-right">SOLICITADAS</th>
-                        <th className="py-2.5 px-3 text-right">REALIZADAS</th>
-                        <th className="py-2.5 px-3 text-right">NÃO-REALIZADAS</th>
-                        <th className="py-2.5 px-3">MATR</th>
-                        <th className="py-2.5 px-3">COD</th>
-                        <th className="py-2.5 px-3 text-right">LEITURA</th>
-                        <th className="py-2.5 px-3 text-center">DIG</th>
-                        <th className="py-2.5 px-3 text-right">INDICADOR</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-800/40 font-mono tabular-nums">
-                      {paginatedFullRows.length === 0 ? (
-                        <tr>
-                          <td colSpan={12} className="p-8 text-center text-xs text-slate-500">
-                            Nenhum registro de evidência atende aos filtros.
-                          </td>
-                        </tr>
-                      ) : (
-                        paginatedFullRows.map((row) => (
-                          <tr key={row.id} className={`${getRowStyle(row.indicador)} hover:brightness-110 transition-colors`}>
-                            <td className="py-2 px-3 font-sans">{row.mes}</td>
-                            <td className="py-2 px-3">{row.ano}</td>
-                            <td className="py-2 px-3">{row.razao}</td>
-                            <td className="py-2 px-3 font-semibold">{row.ul}</td>
-                            <td className="py-2 px-3 text-right">{row.solicitadas}</td>
-                            <td className="py-2 px-3 text-right">{row.realizadas}</td>
-                            <td className="py-2 px-3 text-right">{row.naoRealizadas}</td>
-                            <td className="py-2 px-3">{row.matr}</td>
-                            <td className="py-2 px-3">{row.cod}</td>
-                            <td className="py-2 px-3 text-right">{row.leitura.toLocaleString('pt-BR')}</td>
-                            <td className="py-2 px-3 text-center">{row.dig}</td>
-                            <td className="py-2 px-3 text-right font-bold">
-                              {formatPercent(row.indicador)}
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  totalItems={fullRows.length}
-                  pageSize={pageSize}
-                  onPageChange={setCurrentPage}
-                />
-              </>
-            )}
-
-            {/* Tab 2: Relatório Por Razão */}
-            {activeTab === 'razao' && (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead className="bg-slate-950/80 border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-400 font-mono">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead className="bg-slate-950/90 border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-400 font-mono">
+                  <tr>
+                    <th className="py-3 px-4">RAZAO</th>
+                    <th className="py-3 px-4 text-right">TOTAL LEITURAS</th>
+                    <th className="py-3 px-4 text-right">SOLICITADAS</th>
+                    <th className="py-3 px-4 text-right">REALIZADAS</th>
+                    <th className="py-3 px-4 text-right">NÃO-REALIZADAS</th>
+                    <th className="py-3 px-4 text-right">INDICADOR</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/80 font-mono tabular-nums">
+                  {relatorioPorRazao.length === 0 ? (
                     <tr>
-                      <th className="py-3 px-4">RAZÃO SOCIAL / POLO</th>
-                      <th className="py-3 px-4 text-right">TOTAL LEITURAS</th>
-                      <th className="py-3 px-4 text-right">SOLICITADAS (DIG &ge; 2)</th>
-                      <th className="py-3 px-4 text-right text-emerald-400">REALIZADAS (FOTO OK)</th>
-                      <th className="py-3 px-4 text-right text-rose-400">NÃO-REALIZADAS</th>
-                      <th className="py-3 px-4 text-right">INDICADOR</th>
+                      <td colSpan={6} className="p-8 text-center text-xs text-slate-500">
+                        Nenhum registro encontrado para os filtros selecionados.
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800 font-mono tabular-nums">
-                    {relatorioPorRazao.map((row) => (
-                      <tr key={row.razao} className={`${getRowStyle(row.indicador)} hover:brightness-110 transition-colors`}>
-                        <td className="py-3 px-4 font-sans font-semibold">{row.razao}</td>
+                  ) : (
+                    relatorioPorRazao.map((row) => (
+                      <tr key={row.razao} className={`${getRowStyle(row.indicador)} transition-colors`}>
+                        <td className="py-3 px-4 font-sans font-semibold text-white">{row.razao}</td>
                         <td className="py-3 px-4 text-right">{row.totalLeituras.toLocaleString('pt-BR')}</td>
-                        <td className="py-3 px-4 text-right">{row.solicitadas.toLocaleString('pt-BR')}</td>
-                        <td className="py-3 px-4 text-right">{row.realizadas.toLocaleString('pt-BR')}</td>
-                        <td className="py-3 px-4 text-right">{row.naoRealizadas.toLocaleString('pt-BR')}</td>
+                        <td className="py-3 px-4 text-right font-medium">{row.solicitadas.toLocaleString('pt-BR')}</td>
+                        <td className="py-3 px-4 text-right font-bold">{row.realizadas.toLocaleString('pt-BR')}</td>
+                        <td className="py-3 px-4 text-right font-bold">{row.naoRealizadas.toLocaleString('pt-BR')}</td>
                         <td className="py-3 px-4 text-right font-bold text-sm">
                           {formatPercent(row.indicador)}
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          {/* Gráfico Analítico de Evidências */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
-              <h4 className="text-sm font-semibold text-white flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-cyan-400" />
-                <span>Gráfico Analítico: Indicador de Evidências por Razão</span>
-              </h4>
-              <span className="text-xs text-slate-400 font-mono">% Cumprimento</span>
+          {/* GRÁFICO ANALÍTICO (Posição VERTICAL com barras empilhadas/lado a lado: Realizadas Verde, Não-Realizadas Vermelho) */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-4 mb-6">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-emerald-400" />
+                <div>
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                    GRÁFICO ANALÍTICO
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Posição vertical comparando Fotos Realizadas (Verde) e Fotos Não-Realizadas (Vermelho) por Razão.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4 text-xs font-mono">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-xs bg-emerald-500" />
+                  <span className="text-slate-300">Realizadas</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-xs bg-rose-500" />
+                  <span className="text-slate-300">Não-Realizadas</span>
+                </div>
+              </div>
             </div>
 
-            <div className="space-y-3 pt-2">
+            {/* Vertical Columns Container */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4 items-end min-h-[260px] pt-4 pb-2 px-2 border-b border-slate-800">
               {relatorioPorRazao.map((r) => {
-                const barWidth = Math.min(100, Math.max(5, Math.round(r.indicador)));
+                const realizHeight = maxSolicitadas > 0 ? Math.max(8, Math.round((r.realizadas / maxSolicitadas) * 190)) : 0;
+                const naoRealizHeight = maxSolicitadas > 0 ? Math.max(8, Math.round((r.naoRealizadas / maxSolicitadas) * 190)) : 0;
+                const isHovered = hoveredRazao === r.razao;
+
                 return (
-                  <div key={r.razao} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-200 font-medium">{r.razao}</span>
-                      <div className="flex items-center gap-3 font-mono tabular-nums">
-                        <span className="text-slate-400">{r.realizadas} de {r.solicitadas} solicitadas</span>
-                        <span className="font-bold text-cyan-400">{formatPercent(r.indicador)}</span>
-                      </div>
-                    </div>
-                    <div className="w-full h-2.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                  <div
+                    key={r.razao}
+                    className="flex flex-col items-center gap-2 cursor-pointer group relative"
+                    onMouseEnter={() => setHoveredRazao(r.razao)}
+                    onMouseLeave={() => setHoveredRazao(null)}
+                  >
+                    {/* Top percentage label */}
+                    <span className="text-[11px] font-mono font-bold text-cyan-300">
+                      {formatPercent(r.indicador)}
+                    </span>
+
+                    {/* Vertical Bars (Side by Side) */}
+                    <div className="flex items-end gap-1.5 h-[200px] w-full justify-center bg-slate-950/60 p-1.5 rounded-lg border border-slate-800/80 group-hover:border-slate-700 transition-colors">
+                      {/* Realizadas (Verde) */}
                       <div
-                        className="h-full bg-gradient-to-r from-cyan-500 to-emerald-500 rounded-full transition-all duration-300"
-                        style={{ width: `${barWidth}%` }}
+                        className="w-1/2 max-w-[20px] bg-emerald-500 rounded-t-md transition-all duration-300 hover:brightness-110 shadow-sm"
+                        style={{ height: `${realizHeight}px` }}
+                        title={`Realizadas: ${r.realizadas}`}
+                      />
+                      {/* Não-Realizadas (Vermelho) */}
+                      <div
+                        className="w-1/2 max-w-[20px] bg-rose-500 rounded-t-md transition-all duration-300 hover:brightness-110 shadow-sm"
+                        style={{ height: `${naoRealizHeight}px` }}
+                        title={`Não-Realizadas: ${r.naoRealizadas}`}
                       />
                     </div>
+
+                    {/* Bottom Razão Label */}
+                    <span className="text-xs font-semibold text-slate-300 truncate max-w-[90px] text-center" title={r.razao}>
+                      {r.razao}
+                    </span>
+
+                    {/* Tooltip with Matrícula Breakdown */}
+                    {isHovered && r.matriculas.length > 0 && (
+                      <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 w-64 p-3 bg-slate-900 border border-cyan-800 rounded-lg shadow-2xl text-xs space-y-1.5 z-30 pointer-events-none">
+                        <div className="flex items-center justify-between border-b border-slate-800 pb-1 text-cyan-300 font-semibold text-[11px]">
+                          <span className="truncate">{r.razao}</span>
+                          <span>{r.indicador.toFixed(1)}%</span>
+                        </div>
+                        <div className="text-[11px] text-slate-300 flex justify-between font-mono">
+                          <span className="text-emerald-400 font-bold">{r.realizadas} Realizadas</span>
+                          <span className="text-rose-400 font-bold">{r.naoRealizadas} Pendentes</span>
+                        </div>
+                        <div className="pt-1 border-t border-slate-800/80 max-h-32 overflow-y-auto space-y-1 font-mono text-[10px]">
+                          {r.matriculas.map((mat) => (
+                            <div key={mat.matr} className="flex justify-between text-slate-300">
+                              <span>Matr. {mat.matr}</span>
+                              <span>
+                                <strong className="text-emerald-400">{mat.realizadas}</strong> / <strong className="text-rose-400">{mat.naoRealizadas}</strong>
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}

@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { Users, FileSpreadsheet, Printer, BarChart3, Play } from 'lucide-react';
+import { Users, FileSpreadsheet, Printer, Play, RotateCcw, Info } from 'lucide-react';
 import { ReadingRecord, IMPEDIMENT_CODES, MONTH_NAMES } from '../../types/reading';
-import { exportToExcel, printReport, formatPercent } from '../../utils/exportUtils';
+import { exportToExcel, exportToPdf, formatPercent } from '../../utils/exportUtils';
 import { Pagination } from '../common/Pagination';
 
 interface ControleLeituristaViewProps {
@@ -88,10 +88,27 @@ export const ControleLeituristaView: React.FC<ControleLeituristaViewProps> = ({ 
     setCurrentPage(1);
   };
 
+  const handleReset = () => {
+    setFilterAno('TODOS');
+    setFilterMes('TODOS');
+    setFilterMatr('TODOS');
+    setFilterUlDe('');
+    setFilterUlPara('');
+    setActiveFilters({
+      ano: 'TODOS',
+      mes: 'TODOS',
+      matr: 'TODOS',
+      ulDe: '',
+      ulPara: '',
+    });
+    setHasGenerated(false);
+    setCurrentPage(1);
+  };
+
   // Group and compute metrics based on activeFilters
-  const { groupedRows, totals, chartData } = useMemo(() => {
+  const { groupedRows, totals } = useMemo(() => {
     if (!hasGenerated) {
-      return { groupedRows: [], totals: { urb: 0, pov: 0, rur: 0, total: 0 }, chartData: [] };
+      return { groupedRows: [], totals: { urb: 0, pov: 0, rur: 0, total: 0 } };
     }
 
     const filtered = records.filter((r) => {
@@ -99,7 +116,6 @@ export const ControleLeituristaView: React.FC<ControleLeituristaViewProps> = ({ 
       if (activeFilters.mes !== 'TODOS' && r.mes !== activeFilters.mes) return false;
       if (activeFilters.matr !== 'TODOS' && r.matr !== activeFilters.matr) return false;
 
-      // UL Range: check numeric value of rz_ul_lv or ul against UL DE and UL PARA
       const targetUlNum = parseInt(String(r.rz_ul_lv || r.ul || '0').replace(/\D/g, ''), 10);
       if (activeFilters.ulDe) {
         const deNum = parseInt(activeFilters.ulDe, 10);
@@ -173,14 +189,6 @@ export const ControleLeituristaView: React.FC<ControleLeituristaViewProps> = ({ 
     // Sort descending by impedimentos
     rows.sort((a, b) => b.impedimentos - a.impedimentos);
 
-    // Prepare chart: top leituristas/ULs sorted descending by impedimentos
-    const chart = rows.slice(0, 10).map((r) => ({
-      label: `Matr. ${r.matr} (UL ${r.ul})`,
-      impedimentos: r.impedimentos,
-      total: r.leitTotal,
-      indicador: r.indicador,
-    }));
-
     return {
       groupedRows: rows,
       totals: {
@@ -189,7 +197,6 @@ export const ControleLeituristaView: React.FC<ControleLeituristaViewProps> = ({ 
         rur: totalRur,
         total: totalUrb + totalPov + totalRur,
       },
-      chartData: chart,
     };
   }, [records, hasGenerated, activeFilters]);
 
@@ -215,14 +222,59 @@ export const ControleLeituristaView: React.FC<ControleLeituristaViewProps> = ({ 
       IMPEDIMENTOS: r.impedimentos,
       'INDICADOR (INFM)': formatPercent(r.indicador),
     }));
-    exportToExcel(exportData, `Controle_Leiturista_${activeFilters.mes}_${activeFilters.ano}`);
+    exportToExcel(
+      exportData,
+      `Controle_Leiturista_${activeFilters.mes}_${activeFilters.ano}`,
+      `Controle de Leiturista (${activeFilters.mes}/${activeFilters.ano})`
+    );
   };
 
-  const maxChartImpedimentos = Math.max(...chartData.map((c) => c.impedimentos), 1);
+  const handleExportPdf = () => {
+    const exportData = groupedRows.map((r) => ({
+      ANO: r.ano,
+      MES: r.mes,
+      RAZAO: r.razao,
+      UL: r.ul,
+      MATR: r.matr,
+      'LEIT. URB': r.leitUrb,
+      'LEIT. POV': r.leitPovoado,
+      'LEIT. RUR': r.leitRural,
+      TOTAL: r.leitTotal,
+      IMPEDIMENTOS: r.impedimentos,
+      'INDICADOR': formatPercent(r.indicador),
+    }));
+    exportToPdf(
+      exportData,
+      `Controle_Leiturista_${activeFilters.mes}_${activeFilters.ano}`,
+      `Controle de Leiturista (${activeFilters.mes}/${activeFilters.ano})`
+    );
+  };
+
+  // Filter summary string
+  const filterSummary = useMemo(() => {
+    const anoText = activeFilters.ano === 'TODOS' ? 'Todos' : activeFilters.ano;
+    const mesText = activeFilters.mes === 'TODOS' ? 'Todos' : activeFilters.mes;
+    const matrText = activeFilters.matr === 'TODOS' ? 'Todas' : activeFilters.matr;
+    const ulText = activeFilters.ulDe || activeFilters.ulPara ? `Faixa UL: ${activeFilters.ulDe || 'Início'} até ${activeFilters.ulPara || 'Fim'}` : 'Todas as ULs';
+    return `Filtro Aplicado: Ano: ${anoText} | Mês: ${mesText} | Matrícula: ${matrText} | ${ulText} (${groupedRows.length} grupos consolidados)`;
+  }, [activeFilters, groupedRows.length]);
 
   return (
     <div className="space-y-6">
       
+      {/* Title at Top */}
+      <div className="border-b border-slate-800 pb-3">
+        <h2 className="text-lg font-bold text-white flex items-center gap-2.5">
+          <Users className="w-5 h-5 text-cyan-400" />
+          <span>3. Controle de Leiturista</span>
+        </h2>
+        <p className="text-xs text-slate-400 mt-0.5">
+          Acompanhamento operacional de produção por leiturista, rotas e taxa de impedimentos (INFM).
+        </p>
+      </div>
+
+      <div id="print-report-header" className="hidden print:block" />
+
       {/* Filters Form */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
         <form onSubmit={handleGenerate} className="space-y-4">
@@ -318,14 +370,32 @@ export const ControleLeituristaView: React.FC<ControleLeituristaViewProps> = ({ 
 
           </div>
 
-          <div className="flex justify-end pt-1">
-            <button
-              type="submit"
-              className="px-6 py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-medium text-xs transition-colors flex items-center gap-2 shadow-sm"
-            >
-              <Play className="w-4 h-4 fill-current" />
-              <span>Gerar Relatório</span>
-            </button>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+            {hasGenerated && (
+              <div className="flex items-center gap-1.5 text-xs text-slate-400 font-mono">
+                <Info className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                <span>{filterSummary}</span>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2.5 ml-auto">
+              <button
+                type="button"
+                onClick={handleReset}
+                className="px-4 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-medium text-xs border border-slate-700/80 transition-all flex items-center gap-2"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Fazer nova pesquisa</span>
+              </button>
+
+              <button
+                type="submit"
+                className="px-6 py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs transition-all flex items-center gap-2 shadow-sm"
+              >
+                <Play className="w-4 h-4 fill-current" />
+                <span>Gerar Relatório</span>
+              </button>
+            </div>
           </div>
         </form>
       </div>
@@ -371,136 +441,96 @@ export const ControleLeituristaView: React.FC<ControleLeituristaViewProps> = ({ 
         </div>
       )}
 
-      {/* Table & Chart Section */}
+      {/* Table Section: Relação de Impedimentos */}
       {hasGenerated && (
-        <div className="space-y-6">
-          
-          {/* Table: Relação de Impedimentos */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
-            <div className="px-5 py-3.5 border-b border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                  <Users className="w-4 h-4 text-cyan-400" />
-                  <span>Relação de Impedimentos por Leiturista / UL</span>
-                </h3>
-                <span className="text-xs text-slate-400">
-                  {groupedRows.length} registros agrupados (20 por página)
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleExportExcel}
-                  className="px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700/60 transition-colors flex items-center gap-1.5 whitespace-nowrap"
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Exportar Excel</span>
-                </button>
-                <button
-                  onClick={printReport}
-                  className="px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700/60 transition-colors flex items-center gap-1.5 whitespace-nowrap"
-                >
-                  <Printer className="w-3.5 h-3.5 text-slate-300" />
-                  <span>Imprimir / PDF</span>
-                </button>
-              </div>
+        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
+          <div className="px-5 py-3.5 border-b border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Users className="w-4 h-4 text-cyan-400" />
+                <span>Relação de Impedimentos</span>
+              </h3>
+              <span className="text-xs text-slate-400">
+                {groupedRows.length} registros consolidados (20 por página)
+              </span>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead className="bg-slate-950/80 border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-400 font-mono">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleExportExcel}
+                className="px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700/60 transition-colors flex items-center gap-1.5 whitespace-nowrap"
+                title="Exportar para Excel (.xlsx)"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Exportar Excel</span>
+              </button>
+              <button
+                onClick={handleExportPdf}
+                className="px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700/60 transition-colors flex items-center gap-1.5 whitespace-nowrap"
+                title="Exportar para PDF"
+              >
+                <Printer className="w-3.5 h-3.5 text-slate-300" />
+                <span>Exportar PDF</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead className="bg-slate-950/90 border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-400 font-mono">
+                <tr>
+                  <th className="py-3 px-3.5">ANO</th>
+                  <th className="py-3 px-3.5">MES</th>
+                  <th className="py-3 px-3.5">RAZAO</th>
+                  <th className="py-3 px-3.5">UL</th>
+                  <th className="py-3 px-3.5">MATR</th>
+                  <th className="py-3 px-3.5 text-right">LEIT. URB</th>
+                  <th className="py-3 px-3.5 text-right">LEIT. POVOADO</th>
+                  <th className="py-3 px-3.5 text-right">LEIT. RURAL</th>
+                  <th className="py-3 px-3.5 text-right">LEIT. TOTAL</th>
+                  <th className="py-3 px-3.5 text-right text-rose-300">IMPEDIMENTOS</th>
+                  <th className="py-3 px-3.5 text-right text-amber-300">INDICADOR (INFM)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60 font-mono text-slate-300 tabular-nums">
+                {paginatedRows.length === 0 ? (
                   <tr>
-                    <th className="py-2.5 px-3">ANO</th>
-                    <th className="py-2.5 px-3">MES</th>
-                    <th className="py-2.5 px-3">RAZAO</th>
-                    <th className="py-2.5 px-3">UL</th>
-                    <th className="py-2.5 px-3">MATR</th>
-                    <th className="py-2.5 px-3 text-right">LEIT. URB</th>
-                    <th className="py-2.5 px-3 text-right">LEIT. POVOADO</th>
-                    <th className="py-2.5 px-3 text-right">LEIT. RURAL</th>
-                    <th className="py-2.5 px-3 text-right">LEIT. TOTAL</th>
-                    <th className="py-2.5 px-3 text-right text-rose-300">IMPEDIMENTOS</th>
-                    <th className="py-2.5 px-3 text-right text-amber-300">INDICADOR (INFM)</th>
+                    <td colSpan={11} className="p-8 text-center text-xs text-slate-500">
+                      Nenhum registro encontrado para os filtros selecionados.
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60 font-mono text-slate-300 tabular-nums">
-                  {paginatedRows.length === 0 ? (
-                    <tr>
-                      <td colSpan={11} className="p-8 text-center text-xs text-slate-500">
-                        Nenhum registro encontrado para os filtros selecionados.
+                ) : (
+                  paginatedRows.map((row) => (
+                    <tr key={row.id} className="hover:bg-slate-800/40 transition-colors">
+                      <td className="py-2.5 px-3.5 text-slate-400">{row.ano}</td>
+                      <td className="py-2.5 px-3.5 font-sans text-slate-200">{row.mes}</td>
+                      <td className="py-2.5 px-3.5 text-slate-300">{row.razao}</td>
+                      <td className="py-2.5 px-3.5 text-cyan-400 font-semibold">{row.ul}</td>
+                      <td className="py-2.5 px-3.5 text-white font-semibold">{row.matr}</td>
+                      <td className="py-2.5 px-3.5 text-right text-slate-300">{row.leitUrb}</td>
+                      <td className="py-2.5 px-3.5 text-right text-slate-300">{row.leitPovoado}</td>
+                      <td className="py-2.5 px-3.5 text-right text-slate-300">{row.leitRural}</td>
+                      <td className="py-2.5 px-3.5 text-right font-bold text-slate-100">{row.leitTotal}</td>
+                      <td className="py-2.5 px-3.5 text-right font-bold text-rose-400">
+                        {row.impedimentos}
+                      </td>
+                      <td className="py-2.5 px-3.5 text-right font-bold text-amber-400">
+                        {formatPercent(row.indicador)}
                       </td>
                     </tr>
-                  ) : (
-                    paginatedRows.map((row) => (
-                      <tr key={row.id} className="hover:bg-slate-800/40 transition-colors">
-                        <td className="py-2.5 px-3 text-slate-400">{row.ano}</td>
-                        <td className="py-2.5 px-3 font-sans text-slate-200">{row.mes}</td>
-                        <td className="py-2.5 px-3 text-slate-300">{row.razao}</td>
-                        <td className="py-2.5 px-3 text-cyan-400 font-semibold">{row.ul}</td>
-                        <td className="py-2.5 px-3 text-white font-semibold">{row.matr}</td>
-                        <td className="py-2.5 px-3 text-right text-slate-300">{row.leitUrb}</td>
-                        <td className="py-2.5 px-3 text-right text-slate-300">{row.leitPovoado}</td>
-                        <td className="py-2.5 px-3 text-right text-slate-300">{row.leitRural}</td>
-                        <td className="py-2.5 px-3 text-right font-bold text-slate-100">{row.leitTotal}</td>
-                        <td className="py-2.5 px-3 text-right font-bold text-rose-400">
-                          {row.impedimentos}
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-bold text-amber-400">
-                          {formatPercent(row.indicador)}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              totalItems={groupedRows.length}
-              pageSize={pageSize}
-              onPageChange={setCurrentPage}
-            />
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
 
-          {/* Gráfico ordenado em ordem decrescente por impedimentos */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
-              <h4 className="text-sm font-semibold text-white flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-rose-400" />
-                <span>Ranking Decrescente de Impedimentos por Leiturista / Rota</span>
-              </h4>
-              <span className="text-xs text-slate-400 font-mono">Top 10 Maiores Focos</span>
-            </div>
-
-            <div className="space-y-3 pt-2">
-              {chartData.map((item) => {
-                const barWidth = Math.max(5, Math.round((item.impedimentos / maxChartImpedimentos) * 100));
-                return (
-                  <div key={item.label} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-mono text-slate-200 font-medium">{item.label}</span>
-                      <div className="flex items-center gap-2 font-mono tabular-nums">
-                        <span className="text-rose-400 font-bold">{item.impedimentos} impedimentos</span>
-                        <span className="text-slate-600">/</span>
-                        <span className="text-slate-400">{item.total} leituras</span>
-                        <span className="text-slate-600">·</span>
-                        <span className="text-amber-400 font-semibold">{formatPercent(item.indicador)}</span>
-                      </div>
-                    </div>
-                    <div className="w-full h-2.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
-                      <div
-                        className="h-full bg-gradient-to-r from-amber-500 to-rose-600 rounded-full transition-all duration-300"
-                        style={{ width: `${barWidth}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={groupedRows.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+          />
         </div>
       )}
 
