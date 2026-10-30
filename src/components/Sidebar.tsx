@@ -68,7 +68,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const topMenuItems: MenuItem[] = [
     { id: 'inicio', label: '1. Dashboard', shortLabel: 'Dashboard', icon: LayoutDashboard },
-    { id: 'consulta', label: '2. Consulta de instalação/medidor', shortLabel: 'Consulta', icon: Search },
+    { id: 'consulta', label: '2. Consulta de Instalação/Medidor', shortLabel: 'Consulta', icon: Search },
   ];
 
   const categories: MenuCategory[] = [
@@ -96,8 +96,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       title: 'IMPRESSÕES',
       icon: Printer,
       items: [
-        { id: 'nosb', label: "5.1. 5. N'OSB – Impedimento", shortLabel: "N'OSB Imp.", icon: AlertTriangle },
-        { id: 'nosb_simulacao', label: "5.2. 5.1. N’OSB SIMULAÇÃO", shortLabel: "N'OSB Sim.", icon: Sparkles },
+        { id: 'nosb', label: "5.1. N'OSB – Impedimento", shortLabel: "N'OSB Imp.", icon: AlertTriangle },
+        { id: 'nosb_simulacao', label: "5.2. N’OSB SIMULAÇÃO", shortLabel: "N'OSB Sim.", icon: Sparkles },
       ],
     },
   ];
@@ -114,7 +114,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onCloseMobile();
         }}
         title={item.label}
-        className={`w-full flex items-center rounded-lg text-xs font-medium transition-all group relative ${
+        className={`w-full flex items-center rounded-lg text-xs font-medium transition-all group relative cursor-pointer ${
           isCollapsed
             ? 'justify-center py-2.5 px-0'
             : isSubItem
@@ -169,35 +169,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
       >
         <div className="flex flex-col h-full overflow-hidden">
           
-          {/* Sidebar Top: Logo & Toggle */}
-          <div className="flex items-center justify-between px-3.5 py-3 border-b border-slate-800/80 shrink-0">
+          {/* Sidebar Top: Pure text "Selecione menus" without any icon or image */}
+          <div className="flex items-center justify-between px-4 py-3.5 border-b border-slate-800/80 shrink-0">
             {!isCollapsed ? (
-              <div className="flex items-center gap-2.5">
-                <img
-                  src="/assets/aistudio/LOGO_SAL_4ee1b044.png"
-                  alt="SAL"
-                  className="h-8 w-auto object-contain"
-                  style={{ imageRendering: '-webkit-optimize-contrast' }}
-                />
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300">
-                  Selecione menus
-                </span>
-              </div>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                Selecione menus
+              </span>
             ) : (
               <div className="mx-auto flex flex-col items-center">
-                <img
-                  src="/assets/aistudio/LOGO_SAL_4ee1b044.png"
-                  alt="SAL"
-                  className="h-7 w-auto object-contain"
-                  style={{ imageRendering: '-webkit-optimize-contrast' }}
-                />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Menus
+                </span>
               </div>
             )}
 
             {/* Desktop Collapse / Expand Button */}
             <button
               onClick={onToggleCollapse}
-              className="hidden md:flex p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              className="hidden md:flex p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
               title={isCollapsed ? 'Expandir barra lateral' : 'Recolher barra lateral'}
             >
               {isCollapsed ? <ChevronRight className="w-4 h-4 text-cyan-400" /> : <ChevronLeft className="w-4 h-4" />}
@@ -229,15 +218,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
               return (
                 <div key={cat.id} className="pt-1.5 border-t border-slate-800/60 first:border-t-0 first:pt-0">
                   
-                  {/* Category Header */}
+                  {/* Category Header: Clean category name without "CATEGORIA:" */}
                   {!isCollapsed ? (
                     <button
                       onClick={() => toggleCategory(cat.id)}
-                      className="w-full flex items-center justify-between px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-slate-200 transition-colors group"
+                      className="w-full flex items-center justify-between px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-slate-200 transition-colors group cursor-pointer"
                     >
                       <div className="flex items-center gap-1.5">
                         <CatIcon className={`w-3.5 h-3.5 ${hasActiveChild ? 'text-cyan-400' : 'text-slate-500'}`} />
-                        <span>CATEGORIA: {cat.title}</span>
+                        <span>{cat.title}</span>
                       </div>
                       <ChevronDown
                         className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-200 ${

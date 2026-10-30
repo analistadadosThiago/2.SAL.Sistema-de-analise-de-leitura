@@ -134,7 +134,10 @@ export const SequenciaLeituraView: React.FC<SequenciaLeituraViewProps> = ({ reco
     const q = localSearch.trim().toUpperCase();
     if (!q || sortedSequencia.length === 0) return -1;
     return sortedSequencia.findIndex(
-      (r) => (r.instalacao || '').includes(q) || (r.medidor || '').toUpperCase().includes(q)
+      (r) =>
+        (r.instalacao || '').includes(q) ||
+        (r.medidor || '').toUpperCase().includes(q) ||
+        (r.endereco || '').toUpperCase().includes(q)
     );
   }, [sortedSequencia, localSearch]);
 
@@ -154,15 +157,16 @@ export const SequenciaLeituraView: React.FC<SequenciaLeituraViewProps> = ({ reco
 
   const totalPages = Math.ceil(sortedSequencia.length / pageSize) || 1;
 
-  // Exact Sequence: MES | ANO | RAZÃO | UL | INSTALAÇÃO | MEDIDOR | REGISTRO | LEITURA | MATR | HORA | DATA
+  // Strict Sequence: MES | ANO | RAZÃO | UL | INSTALAÇÃO | MEDIDOR | ENDEREÇO | REGISTRO | LEITURA | MATR | HORA | DATA
   const handleExportExcel = () => {
     const data = sortedSequencia.map((r) => ({
       MES: r.mes,
       ANO: r.ano,
       RAZÃO: r.rz,
-      UL: r.rz_ul_lv,
+      UL: r.rz_ul_lv || r.ul || '',
       INSTALAÇÃO: r.instalacao,
       MEDIDOR: r.medidor,
+      ENDEREÇO: r.endereco || '',
       REGISTRO: r.reg,
       LEITURA: r.l_atual,
       MATR: r.matr,
@@ -181,9 +185,10 @@ export const SequenciaLeituraView: React.FC<SequenciaLeituraViewProps> = ({ reco
       MES: r.mes,
       ANO: r.ano,
       RAZÃO: r.rz,
-      UL: r.rz_ul_lv,
+      UL: r.rz_ul_lv || r.ul || '',
       INSTALAÇÃO: r.instalacao,
       MEDIDOR: r.medidor,
+      ENDEREÇO: r.endereco || '',
       REGISTRO: r.reg,
       LEITURA: r.l_atual,
       MATR: r.matr,
@@ -208,11 +213,11 @@ export const SequenciaLeituraView: React.FC<SequenciaLeituraViewProps> = ({ reco
   return (
     <div className="space-y-6">
       
-      {/* Title at top */}
+      {/* Title at top: Exactly 4.2. Sequência de Leitura */}
       <div className="border-b border-slate-800 pb-3">
         <h2 className="text-lg font-bold text-white flex items-center gap-2.5">
           <Route className="w-5 h-5 text-cyan-400" />
-          <span>7. Sequência de Leitura</span>
+          <span>4.2. Sequência de Leitura</span>
         </h2>
         <p className="text-xs text-slate-400 mt-0.5">
           Auditoria de rota sequencial ordenada por horário crescente com destaque direto de vizinhos de rota na tabela.
@@ -326,7 +331,7 @@ export const SequenciaLeituraView: React.FC<SequenciaLeituraViewProps> = ({ reco
               <button
                 type="button"
                 onClick={handleReset}
-                className="px-4 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-medium text-xs border border-slate-700/80 transition-all flex items-center gap-2"
+                className="px-4 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-medium text-xs border border-slate-700/80 transition-all flex items-center gap-2 cursor-pointer"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>Fazer nova pesquisa</span>
@@ -334,7 +339,7 @@ export const SequenciaLeituraView: React.FC<SequenciaLeituraViewProps> = ({ reco
 
               <button
                 type="submit"
-                className="px-6 py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs transition-all flex items-center gap-2 shadow-sm"
+                className="px-6 py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs transition-all flex items-center gap-2 shadow-sm cursor-pointer"
               >
                 <Play className="w-4 h-4 fill-current" />
                 <span>Gerar Sequência</span>
@@ -347,7 +352,7 @@ export const SequenciaLeituraView: React.FC<SequenciaLeituraViewProps> = ({ reco
       {hasGenerated && (
         <div className="space-y-6">
           
-          {/* Table: Sequência de Leitura (Com destaque direto de vizinhos de rota em VERDE CLARO) */}
+          {/* Table: Sequência de Leitura com rigorosa ordem de colunas e inclusão de ENDEREÇO */}
           <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
             <div className="px-5 py-3.5 border-b border-slate-800 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
               <div>
@@ -367,7 +372,7 @@ export const SequenciaLeituraView: React.FC<SequenciaLeituraViewProps> = ({ reco
                     type="text"
                     value={localSearch}
                     onChange={(e) => setLocalSearch(e.target.value)}
-                    placeholder="Destacar Instalação / Medidor e vizinhos..."
+                    placeholder="Destacar Instalação / Medidor / Endereço..."
                     className="w-full pl-9 pr-3 py-1.5 bg-slate-950 border border-slate-700/80 rounded-lg text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 font-mono"
                   />
                   <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-500 pointer-events-none" />
@@ -375,7 +380,7 @@ export const SequenciaLeituraView: React.FC<SequenciaLeituraViewProps> = ({ reco
 
                 <button
                   onClick={handleExportExcel}
-                  className="px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700/60 transition-colors flex items-center gap-1.5 whitespace-nowrap"
+                  className="px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700/60 transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
                   title="Exportar para Excel (.xlsx)"
                 >
                   <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
@@ -383,7 +388,7 @@ export const SequenciaLeituraView: React.FC<SequenciaLeituraViewProps> = ({ reco
                 </button>
                 <button
                   onClick={handleExportPdf}
-                  className="px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700/60 transition-colors flex items-center gap-1.5 whitespace-nowrap"
+                  className="px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700/60 transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
                   title="Exportar para PDF"
                 >
                   <Printer className="w-3.5 h-3.5 text-slate-300" />
@@ -394,29 +399,30 @@ export const SequenciaLeituraView: React.FC<SequenciaLeituraViewProps> = ({ reco
 
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
-                {/* Exact Sequence: MES | ANO | RAZÃO | UL | INSTALAÇÃO | MEDIDOR | REGISTRO | LEITURA | MATR | HORA | DATA */}
+                {/* Sequência Rigorosa: MES | ANO | RAZÃO | UL | INSTALAÇÃO | MEDIDOR | ENDEREÇO | REGISTRO | LEITURA | MATR | HORA | DATA */}
                 <thead className="bg-slate-950/90 border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-400 font-mono">
                   <tr>
-                    <th className="py-3 px-3.5">MES</th>
-                    <th className="py-3 px-3.5">ANO</th>
-                    <th className="py-3 px-3.5">RAZÃO</th>
-                    <th className="py-3 px-3.5">UL</th>
-                    <th className="py-3 px-3.5">INSTALAÇÃO</th>
-                    <th className="py-3 px-3.5">MEDIDOR</th>
-                    <th className="py-3 px-3.5 text-center">REGISTRO</th>
-                    <th className="py-3 px-3.5 text-right">LEITURA</th>
-                    <th className="py-3 px-3.5">MATR</th>
-                    <th className="py-3 px-3.5 text-cyan-400 flex items-center gap-1">
+                    <th className="py-3 px-3.5 whitespace-nowrap">MES</th>
+                    <th className="py-3 px-3.5 whitespace-nowrap">ANO</th>
+                    <th className="py-3 px-3.5 whitespace-nowrap">RAZÃO</th>
+                    <th className="py-3 px-3.5 whitespace-nowrap">UL</th>
+                    <th className="py-3 px-3.5 whitespace-nowrap">INSTALAÇÃO</th>
+                    <th className="py-3 px-3.5 whitespace-nowrap">MEDIDOR</th>
+                    <th className="py-3 px-3.5 whitespace-nowrap">ENDEREÇO</th>
+                    <th className="py-3 px-3.5 text-center whitespace-nowrap">REGISTRO</th>
+                    <th className="py-3 px-3.5 text-right whitespace-nowrap">LEITURA</th>
+                    <th className="py-3 px-3.5 whitespace-nowrap">MATR</th>
+                    <th className="py-3 px-3.5 text-cyan-400 flex items-center gap-1 whitespace-nowrap">
                       <ArrowUp className="w-3 h-3" />
                       HORA
                     </th>
-                    <th className="py-3 px-3.5 text-cyan-400">DATA</th>
+                    <th className="py-3 px-3.5 text-cyan-400 whitespace-nowrap">DATA</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/80 font-mono text-slate-300 tabular-nums">
                   {paginatedRows.length === 0 ? (
                     <tr>
-                      <td colSpan={11} className="p-8 text-center text-xs text-slate-500">
+                      <td colSpan={12} className="p-8 text-center text-xs text-slate-500">
                         Nenhum registro encontrado para os filtros selecionados.
                       </td>
                     </tr>
@@ -450,22 +456,27 @@ export const SequenciaLeituraView: React.FC<SequenciaLeituraViewProps> = ({ reco
 
                       return (
                         <tr key={row.id} className={rowStyle}>
-                          <td className="py-2.5 px-3.5 font-sans text-slate-200">{row.mes}</td>
-                          <td className="py-2.5 px-3.5 text-slate-400">{row.ano}</td>
-                          <td className="py-2.5 px-3.5 text-slate-300">{row.rz}</td>
-                          <td className="py-2.5 px-3.5 text-cyan-400 font-semibold">{row.rz_ul_lv || row.ul}</td>
-                          <td className="py-2.5 px-3.5 font-semibold text-white">
+                          <td className="py-2.5 px-3.5 font-sans text-slate-200 whitespace-nowrap">{row.mes}</td>
+                          <td className="py-2.5 px-3.5 text-slate-400 whitespace-nowrap">{row.ano}</td>
+                          <td className="py-2.5 px-3.5 text-slate-300 whitespace-nowrap">{row.rz}</td>
+                          <td className="py-2.5 px-3.5 text-cyan-400 font-semibold whitespace-nowrap">{row.rz_ul_lv || row.ul}</td>
+                          <td className="py-2.5 px-3.5 font-semibold text-white whitespace-nowrap">
                             <div className="flex items-center">
                               <span>{row.instalacao}</span>
                               {statusBadge}
                             </div>
                           </td>
-                          <td className="py-2.5 px-3.5 text-slate-300">{row.medidor}</td>
-                          <td className="py-2.5 px-3.5 text-center text-slate-400">{row.reg}</td>
-                          <td className="py-2.5 px-3.5 text-right font-medium text-slate-100">{row.l_atual.toLocaleString('pt-BR')}</td>
-                          <td className="py-2.5 px-3.5 text-slate-200">{row.matr}</td>
-                          <td className="py-2.5 px-3.5 text-cyan-300 font-semibold">{row.hora_original}</td>
-                          <td className="py-2.5 px-3.5 font-sans text-slate-200">{row.data_original}</td>
+                          <td className="py-2.5 px-3.5 text-slate-300 whitespace-nowrap">{row.medidor}</td>
+                          <td className="py-2.5 px-3.5 font-sans text-slate-300 max-w-xs truncate" title={row.endereco}>
+                            {row.endereco || '-'}
+                          </td>
+                          <td className="py-2.5 px-3.5 text-center text-slate-400 whitespace-nowrap">{row.reg}</td>
+                          <td className="py-2.5 px-3.5 text-right font-medium text-slate-100 whitespace-nowrap">
+                            {row.l_atual.toLocaleString('pt-BR')}
+                          </td>
+                          <td className="py-2.5 px-3.5 text-slate-200 whitespace-nowrap">{row.matr}</td>
+                          <td className="py-2.5 px-3.5 text-cyan-300 font-semibold whitespace-nowrap">{row.hora_original}</td>
+                          <td className="py-2.5 px-3.5 font-sans text-slate-200 whitespace-nowrap">{row.data_original}</td>
                         </tr>
                       );
                     })

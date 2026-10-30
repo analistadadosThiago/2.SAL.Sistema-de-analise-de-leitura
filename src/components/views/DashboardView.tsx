@@ -220,6 +220,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ records }) => {
   return (
     <div className="space-y-6">
       
+      {/* Title at top */}
+      <div className="border-b border-slate-800 pb-3">
+        <h2 className="text-lg font-bold text-white flex items-center gap-2.5">
+          <BarChart3 className="w-5 h-5 text-cyan-400" />
+          <span>1. Dashboard</span>
+        </h2>
+        <p className="text-xs text-slate-400 mt-0.5">
+          Visão panorâmica de leituras a realizar, índices de impedimento e análise estratificada por tipo e razão.
+        </p>
+      </div>
+
       {/* Top Filter Bar with "Gerar Relatório" and "Nova Pesquisa" */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
         <form onSubmit={handleGenerate} className="space-y-4">
@@ -482,10 +493,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ records }) => {
                           </span>
                         </div>
 
-                        {/* Coluna Vertical "em pé" */}
+                        {/* Coluna Vertical Encorpada "em pé" */}
                         <div className="w-full flex justify-center h-[200px] items-end">
                           <div
-                            className="w-full max-w-[42px] bg-gradient-to-t from-rose-700 via-rose-500 to-amber-400 rounded-t-lg transition-all duration-300 group-hover:brightness-110 shadow-lg shadow-rose-950/40"
+                            className="w-full max-w-[56px] min-w-[36px] bg-gradient-to-t from-rose-700 via-rose-500 to-amber-400 rounded-t-lg transition-all duration-300 group-hover:brightness-110 shadow-lg shadow-rose-950/40"
                             style={{ height: `${colHeightPercent}%` }}
                           />
                         </div>

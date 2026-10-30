@@ -160,7 +160,7 @@ export const ConsultaView: React.FC<ConsultaViewProps> = ({ records }) => {
       <div className="border-b border-slate-800 pb-3">
         <h2 className="text-lg font-bold text-white flex items-center gap-2.5">
           <Search className="w-5 h-5 text-cyan-400" />
-          <span>2. Consulta de instalação/medidor</span>
+          <span>2. Consulta de Instalação/Medidor</span>
         </h2>
         <p className="text-xs text-slate-400 mt-0.5">
           Pesquisa avançada com histórico cronológico, conferência de fotos e evolução de consumo.

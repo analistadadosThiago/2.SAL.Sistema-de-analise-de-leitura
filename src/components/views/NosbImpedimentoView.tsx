@@ -27,8 +27,8 @@ export const NosbImpedimentoView: React.FC<NosbViewProps> = ({ records, mode = '
   const menuTitle = isConsistencia
     ? '3.3. Controle de Consistência'
     : isSimulacao
-    ? '5.2. 5.1. N’OSB SIMULAÇÃO'
-    : "5.1. 5. N'OSB – Impedimento";
+    ? '5.2. N’OSB SIMULAÇÃO'
+    : "5.1. N'OSB – Impedimento";
 
   const fieldLabel = isConsistencia
     ? 'Motivo de Consistência'

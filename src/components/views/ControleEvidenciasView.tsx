@@ -235,7 +235,7 @@ export const ControleEvidenciasView: React.FC<ControleEvidenciasViewProps> = ({ 
       <div className="border-b border-slate-800 pb-3">
         <h2 className="text-lg font-bold text-white flex items-center gap-2.5">
           <Camera className="w-5 h-5 text-cyan-400" />
-          <span>4. Controle de Evidências</span>
+          <span>3.2. Controle de Evidência</span>
         </h2>
         <p className="text-xs text-slate-400 mt-0.5">
           Auditoria de fotos solicitadas (digitação &ge; 2) versus fotos efetivamente realizadas por polo/razão.
@@ -489,12 +489,12 @@ export const ControleEvidenciasView: React.FC<ControleEvidenciasViewProps> = ({ 
                     <div className="flex items-end gap-2 h-[250px] w-full justify-center bg-slate-950/70 p-2 rounded-lg border border-slate-800/80 group-hover:border-slate-700 transition-colors">
                       {/* Realizadas (Verde) */}
                       <div
-                        className="w-1/2 max-w-[24px] bg-emerald-500 rounded-t-md transition-all duration-300 hover:brightness-110 shadow-sm"
+                        className="w-1/2 max-w-[32px] min-w-[18px] bg-emerald-500 rounded-t-md transition-all duration-300 hover:brightness-110 shadow-sm"
                         style={{ height: `${realizHeight}px` }}
                       />
                       {/* Não-Realizadas (Vermelho) */}
                       <div
-                        className="w-1/2 max-w-[24px] bg-rose-500 rounded-t-md transition-all duration-300 hover:brightness-110 shadow-sm"
+                        className="w-1/2 max-w-[32px] min-w-[18px] bg-rose-500 rounded-t-md transition-all duration-300 hover:brightness-110 shadow-sm"
                         style={{ height: `${naoRealizHeight}px` }}
                       />
                     </div>

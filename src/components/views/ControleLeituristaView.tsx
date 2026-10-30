@@ -290,7 +290,7 @@ export const ControleLeituristaView: React.FC<ControleLeituristaViewProps> = ({ 
       <div className="border-b border-slate-800 pb-3">
         <h2 className="text-lg font-bold text-white flex items-center gap-2.5">
           <Users className="w-5 h-5 text-cyan-400" />
-          <span>3. Controle de Leiturista</span>
+          <span>3.1. Controle de Leiturista</span>
         </h2>
         <p className="text-xs text-slate-400 mt-0.5">
           Acompanhamento operacional de produção por leiturista, rotas e taxa de impedimentos (INFM).
@@ -519,26 +519,34 @@ export const ControleLeituristaView: React.FC<ControleLeituristaViewProps> = ({ 
                         {item.count}
                       </span>
 
-                      {/* Barra Vertical */}
+                      {/* Barra Vertical Encorpada */}
                       <div className="w-full flex justify-center h-[160px] items-end">
                         <div
-                          className="w-full max-w-[36px] bg-gradient-to-t from-rose-700 to-amber-500 rounded-t-md transition-all duration-300 group-hover:brightness-120 shadow-md shadow-rose-950/40"
+                          className="w-full max-w-[48px] min-w-[32px] bg-gradient-to-t from-rose-700 via-rose-500 to-amber-400 rounded-t-lg transition-all duration-300 group-hover:brightness-110 shadow-lg shadow-rose-950/40"
                           style={{ height: `${colHeight}%` }}
                         />
                       </div>
 
                       {/* Código NL na base */}
                       <div className="mt-2 text-center">
-                        <span className="px-1.5 py-0.5 rounded text-[11px] font-mono font-bold bg-slate-950 text-slate-200 border border-slate-800">
+                        <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-slate-950 text-slate-200 border border-slate-800">
                           {item.code}
                         </span>
                       </div>
 
-                      {/* Tooltip on hover */}
-                      <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 p-2 bg-slate-950 border border-slate-700 rounded-md text-xs whitespace-nowrap shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-30 font-mono">
-                        <div className="font-bold text-slate-200">Código NL: {item.code}</div>
-                        <div className="text-rose-400 font-semibold">{item.count} impedimento(s)</div>
-                        <div className="text-slate-400 text-[10px]">{formatPercent(item.pct)} do total</div>
+                      {/* Tooltip on hover clean & well-organized */}
+                      <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 w-48 p-2.5 bg-slate-900 border border-cyan-800/80 rounded-xl shadow-2xl text-xs space-y-1.5 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-30 font-mono">
+                        <div className="border-b border-slate-800 pb-1 text-slate-200 font-semibold text-[11px] text-center font-sans">
+                          Código NL: <span className="text-cyan-300 font-bold">{item.code}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-400 font-sans">Impedimentos:</span>
+                          <span className="text-rose-400 font-bold tabular-nums">{item.count}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-800/60">
+                          <span className="text-slate-400 font-sans">Participação:</span>
+                          <span className="text-amber-300 font-semibold">{formatPercent(item.pct)}</span>
+                        </div>
                       </div>
                     </div>
                   );

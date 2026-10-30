@@ -57,6 +57,7 @@ export default function App() {
           <Header
             onOpenSettings={() => setIsSetupOpen(true)}
             onToggleMobileSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+            onNavigateHome={() => setCurrentMenu('inicio')}
           />
 
           <div className="flex-1 flex overflow-hidden min-h-0">
