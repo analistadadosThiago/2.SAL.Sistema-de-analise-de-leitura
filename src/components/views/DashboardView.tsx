@@ -485,10 +485,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ records }) => {
                       >
                         {/* Número Total de Impedimentos no TOPO da coluna */}
                         <div className="mb-2 text-center">
-                          <span className="font-bold font-mono text-xs text-rose-400 tabular-nums block">
+                          <span className="font-bold font-mono text-sm text-rose-400 tabular-nums block">
                             {item.naoRealizadas.toLocaleString('pt-BR')}
                           </span>
-                          <span className="text-[10px] font-mono text-slate-500 block">
+                          <span className="text-[11px] font-mono text-slate-400 block font-semibold">
                             {formatPercent(item.pct)}
                           </span>
                         </div>
@@ -496,55 +496,51 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ records }) => {
                         {/* Coluna Vertical Encorpada "em pé" */}
                         <div className="w-full flex justify-center h-[200px] items-end">
                           <div
-                            className="w-full max-w-[56px] min-w-[36px] bg-gradient-to-t from-rose-700 via-rose-500 to-amber-400 rounded-t-lg transition-all duration-300 group-hover:brightness-110 shadow-lg shadow-rose-950/40"
+                            className="w-full max-w-[62px] min-w-[38px] bg-gradient-to-t from-rose-700 via-rose-500 to-amber-400 rounded-t-lg transition-all duration-300 group-hover:brightness-110 shadow-lg shadow-rose-950/40"
                             style={{ height: `${colHeightPercent}%` }}
                           />
                         </div>
 
                         {/* Rótulo da Razão na base */}
                         <div className="mt-2 text-center">
-                          <span className="font-semibold text-xs text-slate-200 block truncate max-w-[90px]" title={item.rz}>
+                          <span className="font-bold text-xs text-slate-200 block truncate max-w-[95px]" title={item.rz}>
                             {item.rz}
                           </span>
                         </div>
-
-                        {/* Tooltip com detalhamento por Matrícula */}
-                        {isHovered && item.matriculas.length > 0 && (
-                          <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 w-64 p-3 bg-slate-900 border border-cyan-800 rounded-xl shadow-2xl text-xs space-y-2 z-40 animate-fadeIn pointer-events-none">
-                            <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 text-[11px] font-semibold text-cyan-300">
-                              <span className="flex items-center gap-1.5">
-                                <User className="w-3.5 h-3.5" />
-                                Detalhamento por Matrícula ({item.rz})
-                              </span>
-                              <span>{item.matriculas.length} matr.</span>
-                            </div>
-
-                            <div className="text-[11px] text-slate-300 flex justify-between font-mono pb-1 border-b border-slate-800">
-                              <span>Total Leituras: <strong>{item.total.toLocaleString('pt-BR')}</strong></span>
-                              <span className="text-rose-400 font-bold">{item.naoRealizadas} imp.</span>
-                            </div>
-
-                            <div className="max-h-36 overflow-y-auto space-y-1 font-mono text-[11px]">
-                              {item.matriculas.map((mat) => (
-                                <div
-                                  key={mat.matr}
-                                  className="flex items-center justify-between px-2 py-1 rounded bg-slate-950 border border-slate-800 text-[10px]"
-                                >
-                                  <span className="text-slate-300">Matr. <strong>{mat.matr}</strong></span>
-                                  <span className="text-rose-400 font-bold tabular-nums">
-                                    {mat.count} imp.
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
                       </div>
                     );
                   })}
                 </div>
               </div>
             )}
+
+            {/* Painel Informativo de Detalhamento por Matrícula (exibido abaixo do gráfico sem tampar os números) */}
+            {hoveredRazao && (() => {
+              const item = impedimentosByRazao.find((x) => x.rz === hoveredRazao);
+              if (!item || item.matriculas.length === 0) return null;
+              return (
+                <div className="mt-4 p-3.5 bg-slate-950 border border-slate-800 rounded-xl text-xs space-y-2 animate-fadeIn">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-2 text-xs font-semibold text-cyan-300">
+                    <span className="flex items-center gap-1.5">
+                      <User className="w-4 h-4 text-cyan-400" />
+                      Detalhamento por Matrícula — Razão {item.rz} (Total: {item.naoRealizadas.toLocaleString('pt-BR')} impedimentos | {formatPercent(item.pct)})
+                    </span>
+                    <span className="font-mono text-slate-400">{item.matriculas.length} matrículas</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto pt-1 font-mono text-[11px]">
+                    {item.matriculas.map((mat) => (
+                      <div
+                        key={mat.matr}
+                        className="flex items-center gap-2 px-2.5 py-1 rounded bg-slate-900 border border-slate-800 text-[11px]"
+                      >
+                        <span className="text-slate-300">Matr: <strong className="text-white">{mat.matr}</strong></span>
+                        <span className="text-rose-400 font-bold tabular-nums">{mat.count} imp.</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
         </div>

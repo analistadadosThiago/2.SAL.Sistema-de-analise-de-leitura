@@ -109,6 +109,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return (
       <button
         key={item.id}
+        type="button"
         onClick={() => {
           onSelectMenu(item.id);
           onCloseMobile();
@@ -169,40 +170,75 @@ export const Sidebar: React.FC<SidebarProps> = ({
       >
         <div className="flex flex-col h-full overflow-hidden">
           
-          {/* Sidebar Top: Pure text "Selecione menus" without any icon or image */}
-          <div className="flex items-center justify-between px-4 py-3.5 border-b border-slate-800/80 shrink-0">
+          {/* Sidebar Top: Prominent, perfectly-aligned Logo at the top */}
+          <div className="border-b border-slate-800/80 bg-slate-950/60 shrink-0 px-4 py-3.5">
             {!isCollapsed ? (
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                Selecione menus
-              </span>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center">
+                  <img
+                    src="/assets/aistudio/LOGO_SAL_4ee1b044.png"
+                    alt="SAL - Sistema de Análise de Leitura"
+                    className="h-11 sm:h-12 w-auto object-contain drop-shadow"
+                    style={{
+                      imageRendering: '-webkit-optimize-contrast',
+                    }}
+                  />
+                </div>
+
+                <div className="flex items-center gap-1">
+                  {/* Desktop Collapse Button */}
+                  <button
+                    type="button"
+                    onClick={onToggleCollapse}
+                    className="hidden md:flex p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                    title="Recolher barra lateral"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+
+                  {/* Mobile Close Button */}
+                  <button
+                    type="button"
+                    onClick={onCloseMobile}
+                    className="md:hidden p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
             ) : (
-              <div className="mx-auto flex flex-col items-center">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Menus
-                </span>
+              <div className="flex flex-col items-center justify-center gap-2 py-1">
+                <button
+                  type="button"
+                  onClick={onToggleCollapse}
+                  className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                  title="Expandir barra lateral"
+                >
+                  <ChevronRight className="w-4 h-4 text-cyan-400" />
+                </button>
+                <img
+                  src="/assets/aistudio/LOGO_SAL_4ee1b044.png"
+                  alt="SAL"
+                  className="h-8 w-auto max-w-[56px] object-contain drop-shadow"
+                  style={{
+                    imageRendering: '-webkit-optimize-contrast',
+                  }}
+                />
               </div>
             )}
-
-            {/* Desktop Collapse / Expand Button */}
-            <button
-              onClick={onToggleCollapse}
-              className="hidden md:flex p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
-              title={isCollapsed ? 'Expandir barra lateral' : 'Recolher barra lateral'}
-            >
-              {isCollapsed ? <ChevronRight className="w-4 h-4 text-cyan-400" /> : <ChevronLeft className="w-4 h-4" />}
-            </button>
-
-            {/* Mobile Close Button */}
-            <button
-              onClick={onCloseMobile}
-              className="md:hidden p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800"
-            >
-              <X className="w-5 h-5" />
-            </button>
           </div>
 
           {/* Navigation Items (Categorized & Scrollable) */}
           <div className="flex-1 py-3 px-2 space-y-3 overflow-y-auto">
+            
+            {/* Pure text header: NO repeated logo image below */}
+            {!isCollapsed && (
+              <div className="px-2.5 pt-0.5 pb-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  Selecione menus
+                </span>
+              </div>
+            )}
             
             {/* Top Principal Menus: 1. Dashboard & 2. Consulta */}
             <div className="space-y-1">
@@ -221,6 +257,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   {/* Category Header: Clean category name without "CATEGORIA:" */}
                   {!isCollapsed ? (
                     <button
+                      type="button"
                       onClick={() => toggleCategory(cat.id)}
                       className="w-full flex items-center justify-between px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-slate-200 transition-colors group cursor-pointer"
                     >
